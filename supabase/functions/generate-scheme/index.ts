@@ -29,7 +29,7 @@ serve(async (req) => {
     const topicsList = topics
       .map(
         (t: any, i: number) =>
-          `Topic ${i + 1}: "${t.name}" with competencies: ${t.competencies.filter((c: string) => c.trim()).join("; ") || "general competency"}`
+          `Topic ${i + 1}: "${t.name}" (${t.numberOfPeriods} periods) with competencies: ${t.competencies.filter((c: string) => c.trim()).join("; ") || "general competency"}`
       )
       .join("\n");
 
@@ -44,7 +44,7 @@ Periods per week: ${totalPeriodsPerWeek} (${singlePeriodsPerWeek} single + ${dou
 Topics and competencies provided by the teacher:
 ${topicsList}
 
-Generate a JSON array of rows for the scheme of work. Each row represents one period in a week. Distribute the topics across the ${numberOfWeeks} weeks with ${totalPeriodsPerWeek} periods per week.
+Generate a JSON array of rows for the scheme of work. Each row represents one period in a week. Distribute the topics across the ${numberOfWeeks} weeks with ${totalPeriodsPerWeek} periods per week. IMPORTANT: Each topic specifies how many periods it should cover — allocate exactly that many periods to each topic.
 
 For each row, provide:
 - week (number)

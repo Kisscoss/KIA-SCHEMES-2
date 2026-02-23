@@ -24,6 +24,7 @@ import {
 const createEmptyTopic = (): Topic => ({
   id: crypto.randomUUID(),
   name: "",
+  numberOfPeriods: 4,
   competencies: [""],
 });
 
@@ -327,6 +328,26 @@ const SchemeForm = () => {
                       }
                       className="flex-1"
                     />
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Periods:</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={topic.numberOfPeriods}
+                        onChange={(e) =>
+                          updateField(
+                            "topics",
+                            formData.topics.map((t) =>
+                              t.id === topic.id
+                                ? { ...t, numberOfPeriods: parseInt(e.target.value) || 1 }
+                                : t
+                            )
+                          )
+                        }
+                        className="w-20"
+                      />
+                    </div>
                     {formData.topics.length > 1 && (
                       <Button
                         variant="ghost"

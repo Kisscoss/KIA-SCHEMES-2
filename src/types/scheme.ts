@@ -1,6 +1,7 @@
 export interface Topic {
   id: string;
   name: string;
+  numberOfPeriods: number;
   competencies: string[];
 }
 
