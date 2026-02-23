@@ -127,13 +127,27 @@ const SchemeForm = () => {
         "generate-scheme",
         { body: { formData } }
       );
-      if (error) throw error;
+
+      // Handle error responses (including 429/402 returned as data)
+      if (error) {
+        // Try to extract message from the response body
+        const errorBody = data;
+        const message = errorBody?.error || error.message || "Failed to generate scheme.";
+        if (message.includes("Rate limit")) {
+          toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
+        } else if (message.includes("Payment") || message.includes("credits")) {
+          toast.error("AI credits exhausted. Please add credits in workspace settings.");
+        } else {
+          toast.error(message);
+        }
+        return;
+      }
 
       // Navigate to preview with generated data
       navigate("/preview", { state: { scheme: data } });
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Failed to generate scheme. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
