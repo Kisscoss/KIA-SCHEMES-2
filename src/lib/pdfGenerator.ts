@@ -55,6 +55,7 @@ export const generatePDF = (scheme: GeneratedScheme) => {
     head: [headers],
     body,
     startY: 28,
+    showHead: "everyPage",
     theme: "grid",
     styles: {
       fontSize: 7,
@@ -85,6 +86,20 @@ export const generatePDF = (scheme: GeneratedScheme) => {
     },
     margin: { left: 10, right: 10 },
   });
+
+  // Add page numbers
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Page ${i} of ${totalPages}`,
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 8,
+      { align: "center" }
+    );
+  }
 
   doc.save(
     `Scheme_${formData.subject}_${formData.class}_${formData.term}.pdf`
