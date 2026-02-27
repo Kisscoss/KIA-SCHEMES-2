@@ -25,7 +25,7 @@ serve(async (req) => {
       topics,
     } = formData;
 
-    const totalPeriodsPerWeek = singlePeriodsPerWeek + doublePeriodsPerWeek;
+    const totalPeriodsPerWeek = singlePeriodsPerWeek + doublePeriodsPerWeek * 2;
     const topicsList = topics
       .map(
         (t: any, i: number) =>
@@ -39,7 +39,7 @@ Subject: ${subject}
 Class: ${studentClass}
 Term: ${term}
 Number of weeks: ${numberOfWeeks}
-Periods per week: ${totalPeriodsPerWeek} (${singlePeriodsPerWeek} single + ${doublePeriodsPerWeek} double)
+Periods per week: ${totalPeriodsPerWeek} (${singlePeriodsPerWeek} single + ${doublePeriodsPerWeek} double, where each double = 2 single periods)
 
 Topics and competencies provided by the teacher:
 ${topicsList}
@@ -48,7 +48,7 @@ Generate a JSON array of rows for the scheme of work. Each row represents one pe
 
 For each row, provide:
 - week (number)
-- period (string like "1", "2", "3" or "1-2" for double periods)
+- period (string: number sequentially — single periods as "1", "2", etc., double periods as "2-3", "4-5", etc. For example with 1 single + 2 doubles: periods are "1", "2-3", "4-5")
 - topic (from the provided topics)
 - competency (from the provided competencies for that topic)
 - learningOutcomes (2-3 specific, measurable outcomes)
