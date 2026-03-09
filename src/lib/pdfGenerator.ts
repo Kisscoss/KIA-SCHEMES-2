@@ -102,22 +102,6 @@ export const generatePDF = (scheme: GeneratedScheme) => {
     );
   }
 
-  // Update page numbers with total count
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    // White-out the old text and rewrite with total
-    doc.setFillColor(255, 255, 255);
-    doc.rect(pageWidth / 2 - 30, doc.internal.pageSize.getHeight() - 12, 60, 8, "F");
-    doc.text(
-      `Page ${i} of ${totalPages}`,
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
-      { align: "center" }
-    );
-  }
 
   doc.save(
     `Scheme_${formData.subject}_${formData.class}_${formData.term}.pdf`
