@@ -85,36 +85,23 @@ export const generatePDF = (scheme: GeneratedScheme) => {
       8: { cellWidth: 18 },
     },
     margin: { left: 10, right: 10, bottom: 15 },
-    didDrawPage: (data) => {
-      // Page number on every page
-      const pageNumber = doc.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Page ${pageNumber}`,
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 8,
-        { align: "center" }
-      );
-    },
   });
 
-  // Update page numbers with total count
+  // Add page numbers after table is fully generated
+  const pageHeight = doc.internal.pageSize.getHeight();
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    // White-out the old text and rewrite with total
-    doc.setFillColor(255, 255, 255);
-    doc.rect(pageWidth / 2 - 30, doc.internal.pageSize.getHeight() - 12, 60, 8, "F");
     doc.text(
       `Page ${i} of ${totalPages}`,
       pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 8,
+      pageHeight - 5,
       { align: "center" }
     );
   }
+
 
   doc.save(
     `Scheme_${formData.subject}_${formData.class}_${formData.term}.pdf`
