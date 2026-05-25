@@ -61,6 +61,7 @@ Important:
 - Distribute topics evenly across weeks
 - Make learning outcomes specific and measurable
 - Vary methodologies across periods
+- For EACH topic, the LAST period allocated to that topic (whether single or double) MUST be an "Activity of Integration (AoI)". For that row: set the "topic" field to "<Topic Name> - Activity of Integration (AoI)", set "learningOutcomes" to describe how learners will be assessed on the competencies covered throughout the topic, and use assessment-oriented methodologies (e.g., Problem Solving, Practical Work, Group Discussions, Project Work). This AoI period still counts toward the topic's allocated periods.
 - Return ONLY a valid JSON array, no markdown, no explanation.`;
 
     const response = await fetch(
