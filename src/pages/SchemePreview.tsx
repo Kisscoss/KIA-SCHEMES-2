@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,21 @@ import { generatePDF } from "@/lib/pdfGenerator";
 const SchemePreview = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const scheme = location.state?.scheme as GeneratedScheme | undefined;
+  const scheme = useMemo<GeneratedScheme | undefined>(() => {
+    const fromState = (location.state as { scheme?: GeneratedScheme } | null)?.scheme;
+    if (fromState) {
+      try {
+        sessionStorage.setItem("generatedScheme", JSON.stringify(fromState));
+      } catch {}
+      return fromState;
+    }
+    try {
+      const stored = sessionStorage.getItem("generatedScheme");
+      return stored ? (JSON.parse(stored) as GeneratedScheme) : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [location.state]);
 
   if (!scheme) {
     return (

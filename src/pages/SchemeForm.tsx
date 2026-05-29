@@ -143,7 +143,10 @@ const SchemeForm = () => {
         return;
       }
 
-      // Navigate to preview with generated data
+      // Persist so a refresh on /preview doesn't lose the data
+      try {
+        sessionStorage.setItem("generatedScheme", JSON.stringify(data));
+      } catch {}
       navigate("/preview", { state: { scheme: data } });
     } catch (err: any) {
       console.error(err);
