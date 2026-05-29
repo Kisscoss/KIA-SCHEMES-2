@@ -61,17 +61,20 @@ export const generatePDF = (scheme: GeneratedScheme) => {
     "Remarks",
   ];
 
-  const body = rows.map((r) => [
-    String(r.week),
-    r.period,
-    r.topic,
-    r.competency,
-    r.learningOutcomes,
-    r.resources,
-    r.methodology,
-    r.references,
-    r.remarks,
-  ]);
+  const body = rows.map((r, i) => {
+    const isAoi = aoiRowIndices.has(i);
+    return [
+      String(r.week),
+      r.period,
+      isAoi ? "AoI" : r.topic,
+      isAoi ? "AoI" : r.competency,
+      isAoi ? "AoI" : r.learningOutcomes,
+      isAoi ? "AoI" : r.resources,
+      isAoi ? "AoI" : r.methodology,
+      isAoi ? "AoI" : r.references,
+      r.remarks,
+    ];
+  });
 
   autoTable(doc, {
     head: [headers],
