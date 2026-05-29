@@ -8,6 +8,28 @@ export const generatePDF = (scheme: GeneratedScheme) => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
+  // Validate AoI placement: ensure the LAST row of each topic group is marked
+  // as Activity of Integration (AoI). Topics are detected by stripping any
+  // existing " - Activity of Integration (AoI)" suffix from the topic field.
+  const stripAoI = (t: string) =>
+    t.replace(/\s*-\s*Activity of Integration \(AoI\)\s*$/i, "").trim();
+
+  const lastIndexByTopic = new Map<string, number>();
+  rows.forEach((r, i) => {
+    const base = stripAoI(r.topic || "");
+    if (base) lastIndexByTopic.set(base, i);
+  });
+
+  const aoiRowIndices = new Set<number>();
+  lastIndexByTopic.forEach((idx, base) => {
+    const row = rows[idx];
+    const already = /Activity of Integration \(AoI\)/i.test(row.topic);
+    if (!already) {
+      row.topic = `${base} - Activity of Integration (AoI)`;
+    }
+    aoiRowIndices.add(idx);
+  });
+
   // Title
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
@@ -85,6 +107,12 @@ export const generatePDF = (scheme: GeneratedScheme) => {
       8: { cellWidth: 23 },
     },
     margin: { left: 10, right: 10, bottom: 15 },
+    didParseCell: (data) => {
+      if (data.section === "body" && aoiRowIndices.has(data.row.index)) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fillColor = [255, 244, 214];
+      }
+    },
   });
 
   // Add page numbers after table is fully generated
