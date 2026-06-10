@@ -40,7 +40,7 @@ export const SUBJECTS = [
   "Entrepreneurship", "Economics", "Computer Studies",
   "Christian Religious Education", "Islamic Religious Education",
   "Physical Education", "Arabic", "Local Language",
-  "Art & Design", "Literature in English", "General Paper"
+  "Art & Design", "Literature in English", "General Paper", "Agriculture"
 ] as const;
 
 export const TERMS = ["Term 1", "Term 2", "Term 3"] as const;
