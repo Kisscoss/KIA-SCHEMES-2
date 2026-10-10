@@ -1,73 +1,46 @@
-# Welcome to your Lovable project
+# Scheme Genie
 
-## Project info
+Description: Build a web app (Called KIA Schemes) that generates Schemes of Work in the format provided (see attached PDF sample). Instead of uploading an Excel template, the app should display a questionnaire form that the teacher fills in. The AI then uses this form information to generate a complete scheme of work, filling in missing sections automatically. The final output should be downloadable as a PDF in the same structure as the example. 🔹 Core Features
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Landing Page o App introduction. o Button: “Create Scheme of Work”.
 
-## How can I edit this code?
+Questionnaire Form o The form should collect:  Subject (Mathematics, English, Chemistry, Biology, Physics, Geography, History & Political Education, Kiswahili, Entrepreneurship, Economics, Computer Studies, Christian Religious Education, Islamic Religious Education, Physical Education, Arabic, Local Language, Art & Design, Literature in English, General Paper)  Term (Term 1, Term 2, Term 3)  Class (S1, S2, S3, S4, S5, S6)  Number of Weeks in Term  Number of Single Periods per Week  Number of Double Periods per Week  Topics (per term)  Competencies (per topic) o Form should allow multiple topics to be added dynamically (e.g., “Add Topic” button).
 
-There are several ways of editing your application.
+AI Auto-Completion o Once teacher submits the form:  AI generates:  Learning Outcomes  Teaching & Learning Resources  Methodology  References o Suggested methodologies include: Do Review Learn & Apply (DRLA), Target Questioning, Group Discussions, Think-Pair-Share, Modeling. o Suggested references include: NCDC Books, SMS Series, Vision Mathematics, Teacher’s Guides, Active Mathematics, MK Mathematics.
 
-**Use Lovable**
+Scheme of Work Generator o Combine user-provided + AI-generated content. o Output arranged in same table format as sample PDF: Week | Period | Topic | Competency | Learning Outcomes | Resources | Methodology | References | Remarks
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Output & Export o Preview generated scheme on-screen. o Download as PDF (keeping same look/structure as official scheme). 🔹 Tech Stack • Frontend: React.js (with Tailwind CSS for styling). • Backend: Node.js (Express) or Django (Python). • AI Integration: OpenAI API (for generating Resources, Methodology, References). • PDF Generation: PDFKit (Node.js) or ReportLab (Python). 🔹 User Flow
 
-Changes made via Lovable will be committed automatically to this repo.
+Teacher visits app → Clicks “Create Scheme of Work”.
 
-**Use your preferred IDE**
+Teacher fills in questionnaire form with subject details, term, class, topics, competencies, and outcomes.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Teacher submits form → AI generates Resources, Methodology, and References.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+App displays preview of full Scheme of Work.
 
-Follow these steps:
+Teacher downloads scheme as PDF.
+
+This project was built with [Lovable](https://lovable.dev).
+
+**Live app**: https://kia-schemes.lovable.app
+
+## Build with Lovable
+
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/e4f6c0ba-f260-46e3-bd39-54bcb4945f2d).
+
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+git clone <this-repository-url>
+cd <repository-name>
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
