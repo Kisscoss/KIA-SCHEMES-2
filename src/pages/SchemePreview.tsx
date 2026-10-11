@@ -4,6 +4,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type GeneratedScheme } from "@/types/scheme";
 import { generatePDF } from "@/lib/pdfGenerator";
+import { normalizeScheme } from "@/lib/localScheme";
 
 const SchemePreview = () => {
   const location = useLocation();
@@ -11,15 +12,21 @@ const SchemePreview = () => {
   const scheme = useMemo<GeneratedScheme | undefined>(() => {
     const fromState = (location.state as { scheme?: GeneratedScheme } | null)?.scheme;
     if (fromState) {
+      const normalized = normalizeScheme(fromState);
       try {
-        sessionStorage.setItem("generatedScheme", JSON.stringify(fromState));
-      } catch {}
-      return fromState;
+        sessionStorage.setItem("generatedScheme", JSON.stringify(normalized));
+      } catch (storageError) {
+        console.warn("Could not persist scheme to sessionStorage", storageError);
+      }
+      return normalized;
     }
     try {
       const stored = sessionStorage.getItem("generatedScheme");
-      return stored ? (JSON.parse(stored) as GeneratedScheme) : undefined;
-    } catch {
+      if (!stored) return undefined;
+      const parsed = JSON.parse(stored) as GeneratedScheme;
+      return normalizeScheme(parsed);
+    } catch (parseError) {
+      console.warn("Could not read scheme from sessionStorage", parseError);
       return undefined;
     }
   }, [location.state]);

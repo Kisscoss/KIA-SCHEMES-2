@@ -6,14 +6,31 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+interface TopicInput {
+  name?: string;
+  numberOfPeriods?: number;
+  competencies?: string[];
+}
+
+interface SchemeFormInput {
+  subject?: string;
+  term?: string;
+  class?: string;
+  numberOfWeeks?: number;
+  singlePeriodsPerWeek?: number;
+  doublePeriodsPerWeek?: number;
+  topics?: TopicInput[];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { formData } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const { formData } = (await req.json()) as { formData: SchemeFormInput };
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const OPENROUTER_MODEL = Deno.env.get("OPENROUTER_MODEL") || "openrouter/free";
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
     const {
       subject,
@@ -26,10 +43,10 @@ serve(async (req) => {
     } = formData;
 
     const totalPeriodsPerWeek = singlePeriodsPerWeek + doublePeriodsPerWeek * 2;
-    const topicsList = topics
+    const topicsList = (topics ?? [])
       .map(
-        (t: any, i: number) =>
-          `Topic ${i + 1}: "${t.name}" (${t.numberOfPeriods} periods) with competencies: ${t.competencies.filter((c: string) => c.trim()).join("; ") || "general competency"}`
+        (t, i) =>
+          `Topic ${i + 1}: "${t.name ?? "Untitled"}" (${t.numberOfPeriods ?? 1} periods) with competencies: ${(t.competencies ?? []).filter((c: string) => c.trim()).join("; ") || "general competency"}`
       )
       .join("\n");
 
@@ -48,7 +65,7 @@ Generate a JSON array of rows for the scheme of work. Each row represents one pe
 
 For each row, provide:
 - week (number)
-- period (string: number sequentially — single periods as "1", "2", etc., double periods as "2-3", "4-5", etc. For example with 1 single + 2 doubles: periods are "1", "2-3", "4-5")
+- period (string: lesson length ONLY — "1" for a single-period lesson, "2" for a double-period lesson. Never use sequential numbers like "1", "2", "3" or ranges like "2-3". Example with 2 singles + 1 double per week: periods are "1", "1", "2")
 - topic (from the provided topics)
 - competency (from the provided competencies for that topic)
 - learningOutcomes (2-3 specific, measurable outcomes)
@@ -65,15 +82,15 @@ Important:
 - Return ONLY a valid JSON array, no markdown, no explanation.`;
 
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: OPENROUTER_MODEL,
           messages: [
             {
               role: "system",
@@ -116,6 +133,16 @@ Important:
     } catch {
       console.error("Failed to parse AI response:", content);
       throw new Error("AI returned invalid data. Please try again.");
+    }
+
+    if (Array.isArray(rows)) {
+      rows = rows.map((r: { period?: unknown }) => ({
+        ...(r as Record<string, unknown>),
+        period:
+          r?.period === 2 || r?.period === "2" || r?.period === "double"
+            ? "2"
+            : "1",
+      }));
     }
 
     return new Response(

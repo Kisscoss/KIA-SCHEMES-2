@@ -63,9 +63,11 @@ export const generatePDF = (scheme: GeneratedScheme) => {
 
   const body = rows.map((r, i) => {
     const isAoi = aoiRowIndices.has(i);
+    // Period is lesson length only: "1" single, "2" double.
+    const period = r.period === "2" || r.period === "double" ? "2" : "1";
     return [
       String(r.week),
-      r.period,
+      period,
       isAoi ? "AoI" : r.topic,
       isAoi ? "AoI" : r.competency,
       isAoi ? "AoI" : r.learningOutcomes,

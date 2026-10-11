@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { buildLocalScheme, isValidScheme, normalizeScheme } from "@/lib/localScheme";
 import {
   type SchemeFormData,
   type Topic,
@@ -122,7 +123,30 @@ const SchemeForm = () => {
     }
 
     setLoading(true);
+    const persistAndGo = (scheme: unknown, notice?: string) => {
+      if (!isValidScheme(scheme)) {
+        toast.error("AI returned invalid data. Please try again.");
+        return;
+      }
+      const normalized = normalizeScheme(scheme);
+      try {
+        sessionStorage.setItem("generatedScheme", JSON.stringify(normalized));
+      } catch (storageError) {
+        console.warn("Could not persist scheme to sessionStorage", storageError);
+      }
+      if (notice) toast.message(notice);
+      navigate("/preview", { state: { scheme: normalized } });
+    };
+
     try {
+      if (!isSupabaseConfigured) {
+        persistAndGo(
+          buildLocalScheme(formData),
+          "Supabase is not configured — generated an offline preview."
+        );
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "generate-scheme",
         { body: { formData } }
@@ -131,12 +155,21 @@ const SchemeForm = () => {
       // Handle error responses (including 429/402 returned as data)
       if (error) {
         // Try to extract message from the response body
-        const errorBody = data;
-        const message = errorBody?.error || error.message || "Failed to generate scheme.";
+        const errorBody = data as { error?: string } | null;
+        const message =
+          (typeof errorBody?.error === "string" && errorBody.error) ||
+          error.message ||
+          "Failed to generate scheme.";
         if (message.includes("Rate limit")) {
           toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
         } else if (message.includes("Payment") || message.includes("credits")) {
           toast.error("AI credits exhausted. Please add credits in workspace settings.");
+        } else if (message.includes("Failed to fetch") || message.includes("Failed to send")) {
+          persistAndGo(
+            buildLocalScheme(formData),
+            "AI service unreachable — generated an offline preview."
+          );
+          return;
         } else {
           toast.error(message);
         }
@@ -144,11 +177,8 @@ const SchemeForm = () => {
       }
 
       // Persist so a refresh on /preview doesn't lose the data
-      try {
-        sessionStorage.setItem("generatedScheme", JSON.stringify(data));
-      } catch {}
-      navigate("/preview", { state: { scheme: data } });
-    } catch (err: any) {
+      persistAndGo(data);
+    } catch (err: unknown) {
       console.error(err);
       toast.error("An unexpected error occurred. Please try again.");
     } finally {
