@@ -1,9 +1,16 @@
-import { BookOpen, ArrowRight } from "lucide-react";
+import { BookOpen, ArrowRight, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/AuthContext";
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { user, signOut, loading } = useAuth();
+
+  const handleCta = () => {
+    if (loading) return;
+    navigate(user ? "/create" : "/login");
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -28,12 +35,23 @@ const LandingPage = () => {
 
           <Button
             size="lg"
-            onClick={() => navigate("/create")}
+            onClick={handleCta}
             className="gold-gradient border-0 px-8 py-6 font-body text-base font-semibold text-accent-foreground shadow-lg transition-all hover:scale-105 hover:shadow-xl"
           >
-            Create Scheme of Work
+            {loading ? "..." : user ? "Create Scheme of Work" : "Sign In to Create Scheme"}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
+          {user && (
+            <button
+              onClick={() => {
+                signOut().then(() => navigate("/"));
+              }}
+              className="mt-4 inline-flex items-center gap-1.5 font-body text-sm text-primary-foreground/80 hover:text-primary-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out ({user.email})
+            </button>
+          )}
         </div>
       </section>
 

@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { getSql } from "../db.js";
 import { generateRows, type SchemeFormInput } from "../ai.js";
+import { requireAuth, type AuthedRequest } from "../authMiddleware.js";
 
 const router = Router();
+router.use(requireAuth);
 
 function isValidFormData(fd: unknown): fd is SchemeFormInput {
   if (!fd || typeof fd !== "object") return false;
@@ -39,17 +41,20 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Invalid scheme payload" });
     }
     const sql = getSql();
+    const auth = (req as AuthedRequest).auth;
     const result = await sql`
       INSERT INTO public.schemes
         (school, subject, term, class, year, number_of_weeks,
-         single_periods_per_week, double_periods_per_week, form_data, rows)
+         single_periods_per_week, double_periods_per_week, form_data, rows,
+         user_id, user_email)
       VALUES
         (${formData.school ?? ""}, ${formData.subject ?? ""}, ${formData.term ?? ""},
          ${formData.class ?? ""}, ${formData.year ?? ""},
          ${formData.numberOfWeeks ?? 12},
          ${formData.singlePeriodsPerWeek ?? 0},
          ${formData.doublePeriodsPerWeek ?? 0},
-         ${JSON.stringify(formData)}, ${JSON.stringify(rows)})
+         ${JSON.stringify(formData)}, ${JSON.stringify(rows)},
+         ${auth?.userId ?? null}, ${auth?.email ?? null})
       RETURNING id, created_at
     `;
     return res.status(201).json({

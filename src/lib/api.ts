@@ -1,14 +1,31 @@
 import type { GeneratedScheme, SchemeFormData, SchemeRow } from "@/types/scheme";
+import { getAuthToken } from "@/lib/auth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined ?? "").replace(/\/$/, "");
+
+async function authHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = await getAuthToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeaders()),
+      ...(init?.headers ?? {}),
+    },
   });
   const data = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error("Not signed in. Please sign in to continue.");
+    }
     throw new Error(
       (data && typeof data.error === "string" && data.error) ||
         `Request failed (${res.status})`

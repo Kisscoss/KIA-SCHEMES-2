@@ -5,7 +5,7 @@ questionnaire, AI completes learning outcomes/resources/methodology, and the app
 previews + exports a landscape A4 PDF.
 
 Stack: React + Vite frontend, Express API (`server/`) backed by Neon Postgres,
-OpenRouter for AI generation.
+Neon Auth (Managed Better Auth) for login, OpenRouter for AI generation.
 
 ## Quick start
 
@@ -21,17 +21,32 @@ DATABASE_URL="postgresql://user:password@ep-xxx.neon.tech/neondb?sslmode=require
 OPENROUTER_API_KEY="..."
 OPENROUTER_MODEL=openrouter/free
 PORT=4000
+AUTH_JWKS_URL="https://ep-xxx.neonauth....neon.tech/neondb/auth/.well-known/jwks.json"
+AUTH_ISSUER=""
 ```
+
+Frontend env (`.env`, see `.env.example`): set `VITE_NEON_AUTH_URL` to your Neon
+Auth base URL (Neon Console → Auth → Configuration). `VITE_API_URL` is only needed
+if the API is hosted separately — same-origin works by default.
 
 Run both (in two terminals):
 
 ```sh
-npm run dev              # frontend on :8080, proxies /api → :4000
-npm run dev --prefix server   # API on :4000
+npm run dev                  # frontend on :8080, proxies /api → :4000
+npm run dev --prefix server  # API on :4000
 ```
 
-Frontend env (optional, `.env`): only set `VITE_API_URL` if the API is hosted
-separately. Same-origin works by default.
+## Authentication (Neon Auth)
+
+- Sign-in/sign-up page at `/login` (email + password, plus Google if configured
+  in Neon Console). Neon Auth (Managed Better Auth) is enabled on the
+  `KIA-SCHEME-GENIE` production branch; users sync to `neon_auth.user`.
+- `/create` and `/preview` are gated by `RequireAuth` — visitors are redirected
+  to `/login` unless signed in.
+- The API verifies session JWTs server-side on all `/api/schemes` routes against
+  the branch JWKS endpoint (`AUTH_JWKS_URL`), returning `401` without a valid
+  Bearer token.
+- Saved schemes record `user_id` / `user_email` in `public.schemes`.
 
 ## Scripts
 
