@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { generateScheme, saveScheme } from "@/lib/api";
 import { buildLocalScheme, isValidScheme, normalizeScheme } from "@/lib/localScheme";
 import {
   type SchemeFormData,
@@ -136,51 +136,29 @@ const SchemeForm = () => {
       }
       if (notice) toast.message(notice);
       navigate("/preview", { state: { scheme: normalized } });
+      // Save to Neon in the background (preview works even if this fails).
+      saveScheme(normalized).catch((saveError) => {
+        console.warn("Could not save scheme to Neon", saveError);
+      });
     };
 
     try {
-      if (!isSupabaseConfigured) {
-        persistAndGo(
-          buildLocalScheme(formData),
-          "Supabase is not configured — generated an offline preview."
-        );
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke(
-        "generate-scheme",
-        { body: { formData } }
-      );
-
-      // Handle error responses (including 429/402 returned as data)
-      if (error) {
-        // Try to extract message from the response body
-        const errorBody = data as { error?: string } | null;
-        const message =
-          (typeof errorBody?.error === "string" && errorBody.error) ||
-          error.message ||
-          "Failed to generate scheme.";
-        if (message.includes("Rate limit")) {
-          toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
-        } else if (message.includes("Payment") || message.includes("credits")) {
-          toast.error("AI credits exhausted. Please add credits in workspace settings.");
-        } else if (message.includes("Failed to fetch") || message.includes("Failed to send")) {
-          persistAndGo(
-            buildLocalScheme(formData),
-            "AI service unreachable — generated an offline preview."
-          );
-          return;
-        } else {
-          toast.error(message);
-        }
-        return;
-      }
-
-      // Persist so a refresh on /preview doesn't lose the data
+      const data = await generateScheme(formData);
       persistAndGo(data);
     } catch (err: unknown) {
-      console.error(err);
-      toast.error("An unexpected error occurred. Please try again.");
+      const message = err instanceof Error ? err.message : "Failed to generate scheme.";
+      if (message.includes("Rate limit") || message.includes("Rate limited")) {
+        toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
+      } else if (message.includes("credits")) {
+        toast.error("AI credits exhausted. Please add credits in server settings.");
+      } else if (message.includes("Failed to fetch") || message.includes("fetch")) {
+        persistAndGo(
+          buildLocalScheme(formData),
+          "AI service unreachable — generated an offline preview."
+        );
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
