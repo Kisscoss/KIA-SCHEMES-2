@@ -1,5 +1,9 @@
 import { config } from "./config.js";
 
+// Max time to wait for a single AI response (headers + body). Free-tier models
+// can stall on the body stream, so we fail fast rather than hanging the request.
+const AI_TIMEOUT_MS = 45_000;
+
 export interface TopicInput {
   name?: string;
   numberOfPeriods?: number;
@@ -96,29 +100,60 @@ export function normalizePeriod(raw: unknown): "1" | "2" {
   return "1";
 }
 
-export async function generateRows(formData: SchemeFormInput): Promise<GeneratedRow[]> {
-  if (!config.openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
+/** Pull the first JSON array out of an AI response that may be wrapped in
+ *  prose, markdown fences, or moderation text. Returns null if none found. */
+function extractJsonArray(content: string): unknown {
+  const cleaned = content.replace(/```json/gi, "").replace(/```/g, "").trim();
+  // Fast path: the whole thing is valid JSON already.
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    /* fall through to extraction */
+  }
+  // Find the outermost [...] block (arrays don't nest as objects here).
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      /* fall through */
+    }
+  }
+  return null;
+}
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.openrouterApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: config.openrouterModel,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a curriculum planning expert. Always respond with valid JSON arrays only. No markdown formatting.",
-        },
-        { role: "user", content: buildPrompt(formData) },
-      ],
-    }),
-  });
+async function callOpenRouter(
+  messages: Array<{ role: "system" | "user"; content: string }>
+): Promise<string> {
+  // Guard against a stalled response (some free models hang on the body).
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${config.openrouterApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.openrouterModel,
+        temperature: 0.7,
+        messages,
+      }),
+    });
+  } catch (e) {
+    clearTimeout(timeout);
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("AI is taking too long. Please try again.");
+    }
+    throw e;
+  }
 
   if (!response.ok) {
+    clearTimeout(timeout);
     if (response.status === 429) {
       const err = new Error("Rate limited. Please try again shortly.") as Error & { status?: number };
       err.status = 429;
@@ -134,20 +169,54 @@ export async function generateRows(formData: SchemeFormInput): Promise<Generated
     throw new Error("AI gateway error");
   }
 
-  const aiData = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  let content = aiData.choices?.[0]?.message?.content || "";
-  content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-  let rows: GeneratedRow[];
   try {
-    rows = JSON.parse(content) as GeneratedRow[];
-  } catch {
+    const aiData = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    return aiData.choices?.[0]?.message?.content ?? "";
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("AI is taking too long. Please try again.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function generateRows(formData: SchemeFormInput): Promise<GeneratedRow[]> {
+  if (!config.openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
+
+  const messages: Array<{ role: "system" | "user"; content: string }> = [
+    {
+      role: "system",
+      content:
+        "You are a curriculum planning expert. Always respond with a single valid JSON array only. No markdown, no prose, no commentary.",
+    },
+    { role: "user", content: buildPrompt(formData) },
+  ];
+
+  // Free-tier models occasionally return prose/moderation instead of JSON, so
+  // retry once with a stricter reminder before giving up.
+  let content = await callOpenRouter(messages);
+  let parsed = extractJsonArray(content);
+
+  if (!Array.isArray(parsed)) {
+    content = await callOpenRouter([
+      ...messages,
+      {
+        role: "user",
+        content:
+          "Your previous reply was not a valid JSON array. Respond now with ONLY the JSON array of scheme rows — no text before or after.",
+      },
+    ]);
+    parsed = extractJsonArray(content);
+  }
+
+  if (!Array.isArray(parsed)) {
     console.error("Failed to parse AI response:", content);
     throw new Error("AI returned invalid data. Please try again.");
   }
 
-  if (!Array.isArray(rows)) throw new Error("AI returned invalid data. Please try again.");
-  return rows.map((r) => ({ ...r, period: normalizePeriod(r.period) }));
+  return (parsed as GeneratedRow[]).map((r) => ({ ...r, period: normalizePeriod(r.period) }));
 }

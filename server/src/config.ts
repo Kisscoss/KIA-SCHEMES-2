@@ -6,7 +6,7 @@ export const config = {
     return (process.env.OPENROUTER_API_KEY ?? "").trim();
   },
   get openrouterModel(): string {
-    return process.env.OPENROUTER_MODEL ?? "openrouter/free";
+    return process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
   },
   get port(): number {
     return Number(process.env.PORT || 4000);
