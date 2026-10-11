@@ -23,7 +23,12 @@ OPENROUTER_MODEL=openrouter/free
 PORT=4000
 AUTH_JWKS_URL="https://ep-xxx.neonauth....neon.tech/neondb/auth/.well-known/jwks.json"
 AUTH_ISSUER=""
+# Optional hardening:
+CORS_ORIGIN="https://your-app.example.com"   # comma-separated allowlist; empty = same-origin only
+TRUST_PROXY=1                                # set when behind a reverse proxy (Render/Railway/Nginx)
 ```
+
+Never commit real secrets — only `.env` / `server/.env` (both git-ignored) hold them.
 
 Frontend env (`.env`, see `.env.example`): set `VITE_NEON_AUTH_URL` to your Neon
 Auth base URL (Neon Console → Auth → Configuration). `VITE_API_URL` is only needed
@@ -47,6 +52,22 @@ npm run dev --prefix server  # API on :4000
   the branch JWKS endpoint (`AUTH_JWKS_URL`), returning `401` without a valid
   Bearer token.
 - Saved schemes record `user_id` / `user_email` in `public.schemes`.
+
+## Security
+
+- **Secrets:** `DATABASE_URL`, `OPENROUTER_API_KEY`, and `AUTH_JWKS_URL` live only in
+  `server/.env` (git-ignored). Only the Neon Auth base URL is exposed to the browser
+  (`VITE_NEON_AUTH_URL`) — the API key and DB password are never bundled into `dist/`
+  (verified: no `sk-or-v1-`, `npg_`, or JWT strings in tracked files or build output).
+- **Auth on every route:** all `/api/schemes` routes require a valid Neon Auth session
+  JWT, verified server-side against the branch JWKS endpoint. Generation cannot be
+  bypassed without a token.
+- **Rate limiting:** a global 120 req/min/IP limiter plus a 10 AI generations/hour/user
+  cap protect the OpenRouter quota. Set `TRUST_PROXY=1` behind a proxy so limits key on
+  the real client IP.
+- **CORS:** restricted to an explicit `CORS_ORIGIN` allowlist (empty = same-origin).
+- **Rotate any key that has ever been committed to git history** (Supabase, OpenRouter,
+  Neon). Git history cannot be scrubbed from the remote without a force-push.
 
 ## Scripts
 

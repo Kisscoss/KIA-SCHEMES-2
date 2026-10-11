@@ -12,9 +12,31 @@ function isValidFormData(fd: unknown): fd is SchemeFormInput {
   return Boolean(f.subject && f.term && f.class) && Array.isArray(f.topics);
 }
 
+// Per-user AI generation limit: 10 requests / hour. Protects OpenRouter spend
+// even when a session token is valid.
+const AI_LIMIT = 10;
+const aiWindowMs = 60 * 60 * 1000;
+const aiHits = new Map<string, { count: number; resetAt: number }>();
+function aiRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const bucket = aiHits.get(userId);
+  if (!bucket || bucket.resetAt < now) {
+    aiHits.set(userId, { count: 1, resetAt: now + aiWindowMs });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > AI_LIMIT;
+}
+
 /** POST /api/schemes/generate — AI-generate rows (not yet saved). */
 router.post("/generate", async (req, res) => {
   try {
+    const auth = (req as AuthedRequest).auth;
+    if (auth && aiRateLimited(auth.userId)) {
+      return res
+        .status(429)
+        .json({ error: "AI generation limit reached. Try again later." });
+    }
     const { formData } = req.body as { formData: SchemeFormInput };
     if (!isValidFormData(formData)) {
       return res.status(400).json({ error: "Invalid form data" });
