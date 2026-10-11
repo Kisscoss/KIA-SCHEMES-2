@@ -6,6 +6,11 @@ const METHODOLOGIES = [
   "Modeling, Problem Solving",
   "Demonstration, Practical Work",
   "Group Discussions, Problem Solving",
+  "Think-Pair-Share, Demonstration",
+  "Problem Solving, Practical Work",
+  "Modeling, Group Discussions",
+  "DRLA, Practical Work",
+  "Target Questioning, Problem Solving",
 ];
 
 const RESOURCE_SETS = [
@@ -13,6 +18,10 @@ const RESOURCE_SETS = [
   "Models, charts, work cards",
   "Calculators, rulers, graph books",
   "Textbooks, wall charts, past papers",
+  "ICT projector, laptops, textbooks",
+  "Manipulatives, work cards, real objects",
+  "Reference books, charts, calculators",
+  "Audio-visual aids, textbooks, charts",
 ];
 
 const REFERENCE_SETS = [
@@ -20,7 +29,40 @@ const REFERENCE_SETS = [
   "SMS Series, MK Series",
   "Vision Series, Active Series",
   "Longman, Oxford",
+  "NCDC Book, SMS Series",
+  "Teacher's Guide, MK Series",
+  "Oxford, Longhorn",
+  "Vision Series, MK Series",
 ];
+
+// Human-like outcome phrasings that rotate so no two consecutive periods read
+// the same. Each entry is a (competency, topic) => sentence template.
+const OUTCOME_TEMPLATES: Array<(competency: string, topic: string) => string> = [
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: define the key terms related to ${c}; give local examples from ${t}; and answer two oral questions correctly.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: describe ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: explain the meaning of ${c}; illustrate ${t} using a labelled diagram; and work through one guided example as a class.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: apply ${c} to solve two given problems on ${t}; check their answers with a partner; and correct any mistakes made.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: calculate and record results involving ${c}; interpret what the results show about ${t}; and present findings to the group.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: classify given items according to ${c}; justify their groupings using ideas from ${t}; and compare answers with another learner.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: analyse ${c} step by step; draw conclusions about ${t}; and write a two-sentence summary of what they discovered.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: demonstrate ${c} using the materials provided; describe each stage of ${t}; and note two things they found challenging.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: construct a simple model of ${t}; relate it to ${c}; and evaluate how well their model works.`,
+  (c, t) =>
+    `By the end of the lesson, learners should be able to: compare and contrast ${c} across different ${t} cases; record similarities and differences in a table; and discuss their findings.`,
+];
+
+const AOI_TEMPLATE = (competency: string, topic: string) =>
+  `Learners integrate their understanding of ${topic} by completing an Activity of Integration (AoI): they apply ${competency} to a real-life task, present their solution, and self-assess against the success criteria for the topic.`;
+
 
 export function isValidScheme(value: unknown): value is GeneratedScheme {
   if (!value || typeof value !== "object") return false;
@@ -105,9 +147,11 @@ export function buildLocalScheme(formData: SchemeFormData): GeneratedScheme {
       const isLast = remaining - cost <= 0;
       const competency = list[lessonInTopic % list.length];
       const topicLabel = isLast ? `${topic.name} - Activity of Integration (AoI)` : topic.name;
+      // Rotate through varied, human-like templates so each period is unique.
+      const tplIdx = (topicIdx * 3 + lessonInTopic * 2) % OUTCOME_TEMPLATES.length;
       const outcomes = isLast
-        ? `Learners integrate ${competency} through guided assessment tasks`
-        : `By the end of the lesson, learners should be able to: demonstrate ${competency}`;
+        ? AOI_TEMPLATE(competency, topic.name)
+        : OUTCOME_TEMPLATES[tplIdx](competency, topic.name);
       rows.push({
         week: Math.min(week, totalWeeks),
         period,
@@ -116,7 +160,7 @@ export function buildLocalScheme(formData: SchemeFormData): GeneratedScheme {
         learningOutcomes: outcomes,
         resources: RESOURCE_SETS[(topicIdx + lessonInTopic) % RESOURCE_SETS.length],
         methodology: METHODOLOGIES[(topicIdx + lessonInTopic) % METHODOLOGIES.length],
-        references: REFERENCE_SETS[(topicIdx + lessonInTopic) % REFERENCE_SETS.length],
+        references: REFERENCE_SETS[(topicIdx + lessonInTopic + 1) % REFERENCE_SETS.length],
         remarks: "",
       });
       remaining -= cost;

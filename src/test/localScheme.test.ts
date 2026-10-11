@@ -64,4 +64,34 @@ describe("localScheme", () => {
     expect(isValidScheme(null)).toBe(false);
     expect(isValidScheme({ rows: [{ week: "one" }] })).toBe(false);
   });
+
+  it("produces unique, non-static learning outcomes and fills all fields", () => {
+    const scheme = buildLocalScheme({
+      ...baseForm,
+      topics: [
+        {
+          id: "1",
+          name: "Algebra",
+          numberOfPeriods: 6,
+          competencies: ["Solve equations", "Factorise", "Plot graphs"],
+        },
+      ],
+    });
+    const outcomes = scheme.rows.map((r) => r.learningOutcomes);
+    // Every row has a learning outcome.
+    expect(outcomes.every((o) => typeof o === "string" && o.length > 20)).toBe(true);
+    // Outcomes are unique across periods (not one repeated template).
+    expect(new Set(outcomes).size).toBe(outcomes.length);
+    // AI-style columns are all populated for every row.
+    expect(
+      scheme.rows.every(
+        (r) =>
+          r.resources.trim().length > 0 &&
+          r.methodology.trim().length > 0 &&
+          r.references.trim().length > 0
+      )
+    ).toBe(true);
+    // Methodologies vary across periods (no single method repeated for all).
+    expect(new Set(scheme.rows.map((r) => r.methodology)).size).toBeGreaterThan(1);
+  });
 });

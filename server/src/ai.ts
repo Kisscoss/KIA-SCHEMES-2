@@ -62,21 +62,26 @@ ${topicsList}
 
 Generate a JSON array of rows for the scheme of work. Each row represents one period in a week. Distribute the topics across the ${numberOfWeeks} weeks with ${totalPeriodsPerWeek} periods per week. IMPORTANT: Each topic specifies how many periods it should cover — allocate exactly that many periods to each topic.
 
-For each row, provide:
+For each row, provide the fields below. Write every field FRESH for each period — never reuse the same wording from one row to the next. The output must read as if an experienced teacher hand-wrote a unique lesson plan for every period.
+
 - week (number)
 - period (string: lesson length ONLY — "1" for a single-period lesson, "2" for a double-period lesson. Never use sequential numbers like "1", "2", "3" or ranges like "2-3". Example with 2 singles + 1 double per week: periods are "1", "1", "2")
 - topic (from the provided topics)
 - competency (from the provided competencies for that topic)
-- learningOutcomes (2-3 specific, measurable outcomes)
-- resources (teaching and learning resources, e.g., textbooks, charts, models, calculators, rulers)
-- methodology (from: DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Problem Solving, Practical Work — pick 2-3 appropriate ones)
-- references (from relevant textbooks for ${subject}: NCDC Books, SMS Series, Vision books, Teacher's Guides, Active series, MK series, Longman, Oxford — pick 2-3)
+- learningOutcomes (2-3 specific, measurable outcomes in natural teaching language. Begin with "By the end of the lesson, learners should be able to ..." and use a DIFFERENT action verb each period — e.g. define, describe, explain, apply, calculate, classify, analyse, demonstrate, evaluate, construct. Tie each outcome to THAT period's competency and topic, not a generic sentence. Outcomes should progress naturally across the topic.)
+- resources (the specific teaching and learning resources a teacher would actually use for THAT lesson — e.g. textbooks, charts, models, calculators, rulers, manipulatives, ICT/projector, past papers. Choose resources that fit the period's activity and VARY them across periods.)
+- methodology (2-3 learner-centred methods chosen to fit that period, drawn ONLY from: DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Problem Solving, Practical Work. Vary the combination across periods so no two consecutive lessons use an identical set.)
+- references (2-3 relevant ${subject} references for that period, e.g. NCDC Books, SMS Series, Vision books, Teacher's Guides, Active series, MK series, Longman, Oxford. Match the reference to the period's content.)
 - remarks (leave empty string)
 
-Important:
-- Distribute topics evenly across weeks
-- Make learning outcomes specific and measurable
-- Vary methodologies across periods
+Tone example for learningOutcomes (match this human, specific style):
+"By the end of the lesson, learners should be able to: define the key terms; classify given examples into the correct categories; and solve two practice items correctly."
+
+Quality bar — follow strictly:
+- Every row must be unique and human-like. No templated, repeated, or copy-pasted sentences.
+- learningOutcomes, resources, methodology and references must all be generated and tailored to each individual period — not repeated.
+- Make learning outcomes specific and measurable, progressing across the topic.
+- Vary methodologies across periods.
 - For EACH topic, the LAST period allocated to that topic (whether single or double) MUST be an "Activity of Integration (AoI)". For that row: set the "topic" field to "<Topic Name> - Activity of Integration (AoI)", set "learningOutcomes" to describe how learners will be assessed on the competencies covered throughout the topic, and use assessment-oriented methodologies (e.g., Problem Solving, Practical Work, Group Discussions, Project Work). This AoI period still counts toward the topic's allocated periods.
 - Return ONLY a valid JSON array, no markdown, no explanation.`;
 }
