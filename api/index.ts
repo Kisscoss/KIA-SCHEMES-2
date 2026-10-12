@@ -5,8 +5,8 @@
 // server/src/app.ts — which are declared with the /api prefix — match directly.
 // Vercel serves the static frontend (dist/) itself, so we only handle the API.
 //
-// We build the Express app once at module scope so the in-memory rate-limit
-// buckets persist across warm invocations (best-effort on serverless).
+// We build the Express app once at module scope so its setup (DB pool, JWKS
+// cache) is reused across warm invocations (best-effort on serverless).
 import { createApp } from "../server/dist/app.js";
 
 const app = createApp();
