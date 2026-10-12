@@ -72,14 +72,14 @@ For each row, provide the fields below. Write every field FRESH for each period 
 - period (string: lesson length ONLY — "1" for a single-period lesson, "2" for a double-period lesson. Never use sequential numbers like "1", "2", "3" or ranges like "2-3". Example with 2 singles + 1 double per week: periods are "1", "1", "2")
 - topic (from the provided topics)
 - competency (from the provided competencies for that topic)
-- learningOutcomes (2-3 specific, measurable outcomes in natural teaching language. Begin with "By the end of the lesson, learners should be able to ..." and use a DIFFERENT action verb each period — e.g. define, describe, explain, apply, calculate, classify, analyse, demonstrate, evaluate, construct. Tie each outcome to THAT period's competency and topic, not a generic sentence. Outcomes should progress naturally across the topic.)
+- learningOutcomes (2-3 specific, measurable outcomes in natural teaching language. Do NOT begin with any lead-in phrase like "By the end of the lesson, learners should be able to" — start directly with the action verb (e.g. Define..., Describe..., Calculate...). Use a DIFFERENT action verb each period — e.g. define, describe, explain, apply, calculate, classify, analyse, demonstrate, evaluate, construct. Tie each outcome to THAT period's competency and topic, not a generic sentence. Outcomes should progress naturally across the topic.)
 - resources (the specific teaching and learning resources a teacher would actually use for THAT lesson — e.g. textbooks, charts, models, calculators, rulers, manipulatives, ICT/projector, past papers. Choose resources that fit the period's activity and VARY them across periods.)
 - methodology (2-3 learner-centred methods chosen to fit that period, drawn ONLY from: DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Problem Solving, Practical Work. Vary the combination across periods so no two consecutive lessons use an identical set.)
 - references (2-3 relevant ${subject} references for that period, e.g. NCDC Books, SMS Series, Vision books, Teacher's Guides, Active series, MK series, Longman, Oxford. Match the reference to the period's content.)
 - remarks (leave empty string)
 
-Tone example for learningOutcomes (match this human, specific style):
-"By the end of the lesson, learners should be able to: define the key terms; classify given examples into the correct categories; and solve two practice items correctly."
+Tone example for learningOutcomes (match this human, specific style — no lead-in phrase):
+"Define the key terms; classify given examples into the correct categories; and solve two practice items correctly."
 
 Quality bar — follow strictly:
 - Every row must be unique and human-like. No templated, repeated, or copy-pasted sentences.
@@ -98,6 +98,22 @@ export function normalizePeriod(raw: unknown): "1" | "2" {
   }
   if (typeof raw === "number" && raw >= 2) return "2";
   return "1";
+}
+
+/** Remove any leading "By the end of the lesson, learners should be able to"
+ *  phrasing from a learning-outcome string and capitalise the first action
+ *  verb, so outcomes start directly (e.g. "Define ...", "Calculate ..."). */
+export function stripOutcomeLeadIn(text: unknown): string {
+  if (typeof text !== "string") return "";
+  let out = text.trim();
+  // Strip common lead-in prefixes (case-insensitive, tolerant of punctuation).
+  out = out.replace(
+    /^\s*(by the end of (the )?(lesson|period|topic)[,:]?\s*)?(learners?\s+(will\s+)?(be able to|should be able to)\s*:?\s*)?/i,
+    ""
+  );
+  // Capitalise the first letter so the outcome reads as a clean sentence.
+  if (out.length > 0) out = out[0].toUpperCase() + out.slice(1);
+  return out.trim();
 }
 
 /** Pull the first JSON array out of an AI response that may be wrapped in
@@ -218,5 +234,9 @@ export async function generateRows(formData: SchemeFormInput): Promise<Generated
     throw new Error("AI returned invalid data. Please try again.");
   }
 
-  return (parsed as GeneratedRow[]).map((r) => ({ ...r, period: normalizePeriod(r.period) }));
+  return (parsed as GeneratedRow[]).map((r) => ({
+    ...r,
+    period: normalizePeriod(r.period),
+    learningOutcomes: stripOutcomeLeadIn(r.learningOutcomes),
+  }));
 }

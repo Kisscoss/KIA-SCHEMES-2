@@ -39,26 +39,27 @@ const REFERENCE_SETS = [
 // the same. Each entry is a (competency, topic) => sentence template.
 const OUTCOME_TEMPLATES: Array<(competency: string, topic: string) => string> = [
   (c, t) =>
-    `By the end of the lesson, learners should be able to: define the key terms related to ${c}; give local examples from ${t}; and answer two oral questions correctly.`,
+    `Define the key terms related to ${c}; give local examples from ${t}; and answer two oral questions correctly.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: describe ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
+    `Describe ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: explain the meaning of ${c}; illustrate ${t} using a labelled diagram; and work through one guided example as a class.`,
+    `Explain the meaning of ${c}; illustrate ${t} using a labelled diagram; and work through one guided example as a class.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: apply ${c} to solve two given problems on ${t}; check their answers with a partner; and correct any mistakes made.`,
+    `Apply ${c} to solve two given problems on ${t}; check their answers with a partner; and correct any mistakes made.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: calculate and record results involving ${c}; interpret what the results show about ${t}; and present findings to the group.`,
+    `Calculate and record results involving ${c}; interpret what the results show about ${t}; and present findings to the group.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: classify given items according to ${c}; justify their groupings using ideas from ${t}; and compare answers with another learner.`,
+    `Classify given items according to ${c}; justify their groupings using ideas from ${t}; and compare answers with another learner.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: analyse ${c} step by step; draw conclusions about ${t}; and write a two-sentence summary of what they discovered.`,
+    `Analyse ${c} step by step; draw conclusions about ${t}; and write a two-sentence summary of what they discovered.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: demonstrate ${c} using the materials provided; describe each stage of ${t}; and note two things they found challenging.`,
+    `Demonstrate ${c} using the materials provided; describe each stage of ${t}; and note two things they found challenging.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: construct a simple model of ${t}; relate it to ${c}; and evaluate how well their model works.`,
+    `Construct a simple model of ${t}; relate it to ${c}; and evaluate how well their model works.`,
   (c, t) =>
-    `By the end of the lesson, learners should be able to: compare and contrast ${c} across different ${t} cases; record similarities and differences in a table; and discuss their findings.`,
+    `Compare and contrast ${c} across different ${t} cases; record similarities and differences in a table; and discuss their findings.`,
 ];
+
 
 const AOI_TEMPLATE = (competency: string, topic: string) =>
   `Learners integrate their understanding of ${topic} by completing an Activity of Integration (AoI): they apply ${competency} to a real-life task, present their solution, and self-assess against the success criteria for the topic.`;
@@ -91,11 +92,31 @@ export function normalizePeriodValue(raw: unknown): "1" | "2" {
   return "1";
 }
 
-export function normalizeScheme<T extends { rows?: Array<{ period?: unknown }> }>(scheme: T): T {
+/** Remove any leading "By the end of the lesson, learners should be able to"
+ *  phrasing from a learning-outcome string and capitalise the first action
+ *  verb, so outcomes start directly (e.g. "Define ...", "Calculate ...").
+ *  Applied when normalising cached/saved schemes so legacy data displays
+ *  cleanly. */
+export function stripOutcomeLeadIn(text: unknown): string {
+  if (typeof text !== "string") return "";
+  let out = text.trim();
+  out = out.replace(
+    /^\s*(by the end of (the )?(lesson|period|topic)[,:]?\s*)?(learners?\s+(will\s+)?(be able to|should be able to)\s*:?\s*)?/i,
+    ""
+  );
+  if (out.length > 0) out = out[0].toUpperCase() + out.slice(1);
+  return out.trim();
+}
+
+export function normalizeScheme<T extends { rows?: Array<{ period?: unknown; learningOutcomes?: unknown }> }>(scheme: T): T {
   if (!scheme || !Array.isArray(scheme.rows)) return scheme;
   return {
     ...scheme,
-    rows: scheme.rows.map((r) => ({ ...r, period: normalizePeriodValue(r.period) })),
+    rows: scheme.rows.map((r) => ({
+      ...r,
+      period: normalizePeriodValue(r.period),
+      learningOutcomes: stripOutcomeLeadIn(r.learningOutcomes),
+    })),
   };
 }
 

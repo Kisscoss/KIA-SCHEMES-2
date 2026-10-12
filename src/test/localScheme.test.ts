@@ -4,6 +4,7 @@ import {
   isValidScheme,
   normalizePeriodValue,
   normalizeScheme,
+  stripOutcomeLeadIn,
 } from "@/lib/localScheme";
 import type { SchemeFormData } from "@/types/scheme";
 
@@ -93,5 +94,45 @@ describe("localScheme", () => {
     ).toBe(true);
     // Methodologies vary across periods (no single method repeated for all).
     expect(new Set(scheme.rows.map((r) => r.methodology)).size).toBeGreaterThan(1);
+  });
+
+  it("does not begin learning outcomes with a lead-in phrase", () => {
+    const scheme = buildLocalScheme({
+      ...baseForm,
+      topics: [
+        {
+          id: "1",
+          name: "Algebra",
+          numberOfPeriods: 6,
+          competencies: ["Solve equations", "Factorise", "Plot graphs"],
+        },
+      ],
+    });
+    const leadIn = /^\s*by the end of\b/i;
+    expect(scheme.rows.every((r) => !leadIn.test(r.learningOutcomes))).toBe(true);
+    // Outcomes start directly with the action verb (capitalised).
+    expect(scheme.rows[0].learningOutcomes[0]).toMatch(/[A-Z]/);
+  });
+
+  it("strips the lead-in phrase from legacy/cached outcomes", () => {
+    expect(
+      stripOutcomeLeadIn("By the end of the lesson, learners should be able to: define the key terms.")
+    ).toBe("Define the key terms.");
+    expect(
+      stripOutcomeLeadIn("by the end of the period learners will be able to solve problems")
+    ).toBe("Solve problems");
+    // A clean outcome is left unchanged (aside from capitalisation).
+    expect(stripOutcomeLeadIn("calculate the area of a triangle")).toBe("Calculate the area of a triangle");
+    // normalizeScheme cleans lead-ins on cached data too.
+    const cleaned = normalizeScheme({
+      formData: baseForm,
+      rows: [
+        {
+          ...buildLocalScheme(baseForm).rows[0],
+          learningOutcomes: "By the end of the lesson, learners should be able to: describe shapes.",
+        },
+      ],
+    });
+    expect(cleaned.rows[0].learningOutcomes).toBe("Describe shapes.");
   });
 });
