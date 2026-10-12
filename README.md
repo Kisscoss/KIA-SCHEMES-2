@@ -104,6 +104,42 @@ npm start --prefix server
 
 Env vars: `DATABASE_URL`, `OPENROUTER_API_KEY`, optional `OPENROUTER_MODEL`, `PORT`.
 
+## Production deploy (Vercel)
+
+This repo also deploys to Vercel as-is. The frontend (`dist/`) is served statically
+by Vercel, and `api/index.ts` is a serverless function that reuses the same Express
+`createApp()` (`server/src/app.ts`). `vercel.json` wires it all together:
+
+- `installCommand` installs both the root and `server/` dependencies.
+- `buildCommand` runs `npm run build` **and** `npm run build --prefix server` (the
+  serverless function imports the compiled `server/dist/app.js`).
+- `/api/*` is routed to the function; everything else falls back to `index.html`
+  (SPA).
+
+Deploy steps:
+
+1. Push to GitHub, then **Import** the repo in Vercel. Framework preset: **Vite**.
+   Build/install commands and rewrites come from `vercel.json` automatically.
+2. Add **Environment Variables** (Settings → Environment Variables) for Production
+   (and Preview) — these are injected into the serverless function at runtime:
+
+   | Variable | Value | Where it's used |
+   |---|---|---|
+   | `DATABASE_URL` | Neon pooled connection string | API (Neon Postgres) |
+   | `OPENROUTER_API_KEY` | OpenRouter key | API (AI generation) |
+   | `OPENROUTER_MODEL` | `openai/gpt-4o-mini` (recommended) | API |
+   | `AUTH_JWKS_URL` | Neon Auth `…/auth/.well-known/jwks.json` | API (JWT verify) |
+   | `VITE_NEON_AUTH_URL` | Neon Auth base URL | Frontend (login) |
+   | `TRUST_PROXY` | `1` | API (rate-limit sees real IP behind Vercel) |
+
+   **Do not set `VITE_API_URL`** — the frontend calls same-origin `/api/...`, which
+   Vercel routes to the function. Leave `CORS_ORIGIN` empty (same-origin).
+3. **Deploy.** The API is available at `https://<project>.vercel.app/api/health`.
+
+Caveats vs. a single server: serverless is stateless, so the in-memory rate-limit
+buckets reset on cold starts (best-effort), and generation is capped by Vercel's
+function `maxDuration` (60s) — more than enough for `gpt-4o-mini` (~2s typical).
+
 ## Security notes
 
 - `.env` / `server/.env` are git-ignored. Rotate any previously committed keys

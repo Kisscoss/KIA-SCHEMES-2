@@ -1,74 +1,28 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import schemesRouter from "./routes/schemes.js";
+import express from "express";
+import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { config } from "./config.js";
 
+// Load server/.env for local dev / self-hosting. No-op if the file is absent
+// (e.g. on a platform that injects env vars directly).
 dotenv.config();
 
+const app = createApp();
+
+// Serve the built frontend (dist/) with a SPA fallback so this single process
+// can host both the API and the app — used by local `npm run preview`-style
+// runs and self-hosting on Render/Railway. On Vercel the platform serves the
+// static build instead, so this block is simply unused there.
 const dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-
-// Behind a reverse proxy (Render/Railway/Nginx), set TRUST_PROXY=1 so rate
-// limiting sees the real client IP instead of the proxy's.
-if (process.env.TRUST_PROXY === "1") {
-  app.set("trust proxy", 1);
-}
-
-// Restrict CORS to an explicit allowlist (comma-separated in CORS_ORIGIN).
-// Browsers only; non-browser clients ignore CORS, so API auth still matters.
-const allowedOrigins = (process.env.CORS_ORIGIN ?? "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-app.use(
-  cors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
-  })
-);
-app.use(express.json({ limit: "1mb" }));
-
-// Basic global rate limit: 120 requests / minute / IP (in-memory; fine for
-// a single instance — swap for a shared store if you scale horizontally).
-const hits = new Map<string, { count: number; resetAt: number }>();
-app.use((req, res, next) => {
-  const now = Date.now();
-  const key = req.ip ?? "unknown";
-  const bucket = hits.get(key);
-  if (!bucket || bucket.resetAt < now) {
-    hits.set(key, { count: 1, resetAt: now + 60_000 });
-    return next();
-  }
-  bucket.count += 1;
-  if (bucket.count > 120) {
-    return res.status(429).json({ error: "Too many requests. Slow down." });
-  }
-  next();
-});
-
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "kia-schemes-api" });
-});
-
-app.use("/api/schemes", schemesRouter);
-
-// 404 for unknown API routes
-app.use("/api", (_req, res) => {
-  res.status(404).json({ error: "Not found" });
-});
-
-// Serve the Vite build (dist/) when deployed together.
 const distDir = path.resolve(dirname, "../../dist");
 app.use(express.static(distDir));
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) return next();
-  res.sendFile(path.join(distDir, "index.html"), (err) => {
-    if (err) next();
-  });
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
-const port = Number(process.env.PORT || 4000);
-app.listen(port, () => {
-  console.log(`KIA Schemes API listening on :${port}`);
+app.listen(config.port, () => {
+  console.log(`KIA Schemes API listening on :${config.port}`);
 });
+
