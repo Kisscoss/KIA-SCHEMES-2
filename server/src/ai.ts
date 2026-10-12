@@ -39,6 +39,25 @@ export interface GeneratedRow {
   remarks: string;
 }
 
+// Subjects where numeric calculation / problem-solving is a natural part of
+// lessons. Everything else (humanities, languages, arts, descriptive sciences)
+// is treated as descriptive — calculation verbs would be inappropriate there.
+const QUANTITATIVE_KEYWORDS = [
+  "mathemat",
+  "physic",
+  "chemic",
+  "econom",
+  "comput",
+  "account",
+  "agricultur",
+  "entrepren",
+];
+
+function isQuantitativeSubject(subject: string | undefined): boolean {
+  const s = (subject ?? "").toLowerCase();
+  return QUANTITATIVE_KEYWORDS.some((k) => s.includes(k));
+}
+
 function buildPrompt(formData: SchemeFormInput): string {
   const {
     subject,
@@ -49,6 +68,21 @@ function buildPrompt(formData: SchemeFormInput): string {
     doublePeriodsPerWeek,
     topics,
   } = formData;
+  const quantitative = isQuantitativeSubject(subject);
+  // Subject-sensitive guidance: for descriptive subjects we must forbid the AI
+  // from demanding calculations/solving/formulas that don't belong there.
+  const outcomeGuidance = quantitative
+    ? `Use a DIFFERENT action verb each period — e.g. define, describe, explain, apply, calculate, solve, derive, plot, classify, analyse, demonstrate, evaluate, construct. Because this is a quantitative subject (${subject}), it is appropriate to ask learners to calculate, solve problems, use formulas, plot graphs, and work with numbers — but still tie every outcome to THAT period's competency and topic, and let outcomes progress across the topic.`
+    : `Use a DIFFERENT action verb each period — e.g. define, describe, explain, interpret, narrate, discuss, compare, classify, analyse, demonstrate, evaluate, debate. IMPORTANT: ${subject} is a DESCRIPTIVE subject with no calculations — so you must NOT use verbs like calculate, solve, derive, plot, compute, measure numerically, or invent formulas/numbers that do not exist in this subject. Outcomes must be about understanding, expression, interpretation and discussion, grounded in ${subject} vocabulary, and tied to THAT period's competency and topic so they progress naturally.`;
+  const toneExample = quantitative
+    ? `"Calculate the area of the given figure using the correct formula; check each step with a partner; and record the answer with the right units."`
+    : `"Interpret the poem's imagery; explain how each line reflects the speaker's feelings; and support the view with a chosen quotation."`;
+  const methodList = quantitative
+    ? "DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Problem Solving, Practical Work"
+    : "DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Discussion, Debate, Role Play, Guided Reading, Practical Work";
+  const resourceExamples = quantitative
+    ? "textbooks, charts, models, calculators, rulers, graph papers, manipulatives, ICT/projector, past papers"
+    : "textbooks, story books, wall charts, maps, atlases, photographs, timelines, newspapers, primary sources, ICT/projector, discussion cards";
   const totalPeriodsPerWeek =
     (singlePeriodsPerWeek ?? 0) + (doublePeriodsPerWeek ?? 0) * 2;
   const topicsList = (topics ?? [])
@@ -71,25 +105,25 @@ ${topicsList}
 
 Generate a JSON array of rows for the scheme of work. Each row represents one period in a week. Distribute the topics across the ${numberOfWeeks} weeks with ${totalPeriodsPerWeek} periods per week. IMPORTANT: Each topic specifies how many periods it should cover — allocate exactly that many periods to each topic.
 
-For each row, provide the fields below. Write every field FRESH for each period — never reuse the same wording from one row to the next. The output must read as if an experienced teacher hand-wrote a unique lesson plan for every period.
+For each row, provide the fields below. Write every field FRESH for each period — never reuse the same wording from one row to the next. The output must read as if an experienced teacher hand-wrote a unique lesson plan for every period, deeply connected to ${subject} and the specific competency and topic of that period.
 
 - week (number)
 - period (string: lesson length ONLY — "1" for a single-period lesson, "2" for a double-period lesson. Never use sequential numbers like "1", "2", "3" or ranges like "2-3". Example with 2 singles + 1 double per week: periods are "1", "1", "2")
 - topic (from the provided topics)
 - competency (from the provided competencies for that topic)
-- learningOutcomes (2-3 specific, measurable outcomes in natural teaching language. Do NOT begin with any lead-in phrase like "By the end of the lesson, learners should be able to" — start directly with the action verb (e.g. Define..., Describe..., Calculate...). Use a DIFFERENT action verb each period — e.g. define, describe, explain, apply, calculate, classify, analyse, demonstrate, evaluate, construct. Tie each outcome to THAT period's competency and topic, not a generic sentence. Outcomes should progress naturally across the topic.)
-- resources (the specific teaching and learning resources a teacher would actually use for THAT lesson — e.g. textbooks, charts, models, calculators, rulers, manipulatives, ICT/projector, past papers. Choose resources that fit the period's activity and VARY them across periods.)
-- methodology (2-3 learner-centred methods chosen to fit that period, drawn ONLY from: DRLA, Target Questioning, Group Discussions, Think-Pair-Share, Modeling, Demonstration, Problem Solving, Practical Work. Vary the combination across periods so no two consecutive lessons use an identical set.)
+- learningOutcomes (2-3 specific, measurable outcomes in natural teaching language. Do NOT begin with any lead-in phrase like "By the end of the lesson, learners should be able to" — start directly with the action verb. ${outcomeGuidance})
+- resources (the specific teaching and learning resources a teacher would actually use for THAT lesson — e.g. ${resourceExamples}. Choose resources that fit the period's activity and VARY them across periods.)
+- methodology (2-3 learner-centred methods chosen to fit that period, drawn ONLY from: ${methodList}. Vary the combination across periods so no two consecutive lessons use an identical set.)
 - references (2-3 relevant ${subject} references for that period, e.g. NCDC Books, SMS Series, Vision books, Teacher's Guides, Active series, MK series, Longman, Oxford. Match the reference to the period's content.)
 - remarks (leave empty string)
 
 Tone example for learningOutcomes (match this human, specific style — no lead-in phrase):
-"Define the key terms; classify given examples into the correct categories; and solve two practice items correctly."
+${toneExample}
 
 Quality bar — follow strictly:
 - Every row must be unique and human-like. No templated, repeated, or copy-pasted sentences.
 - learningOutcomes, resources, methodology and references must all be generated and tailored to each individual period — not repeated.
-- Make learning outcomes specific and measurable, progressing across the topic.
+- Make learning outcomes specific and measurable, progressing across the topic, and always connected to ${subject}, its competency and its topic.
 - Vary methodologies across periods.
 - For EACH topic, the LAST period allocated to that topic (whether single or double) MUST be an "Activity of Integration (AoI)". For that row: set the "topic" field to "<Topic Name> - Activity of Integration (AoI)", set "learningOutcomes" to describe how learners will be assessed on the competencies covered throughout the topic, and use assessment-oriented methodologies (e.g., Problem Solving, Practical Work, Group Discussions, Project Work). This AoI period still counts toward the topic's allocated periods.
 - Return ONLY a valid JSON array, no markdown, no explanation.`;

@@ -135,4 +135,45 @@ describe("localScheme", () => {
     });
     expect(cleaned.rows[0].learningOutcomes).toBe("Describe shapes.");
   });
+
+  it("uses quantitative outcomes (calculation verbs) for maths", () => {
+    const scheme = buildLocalScheme({
+      ...baseForm,
+      subject: "Mathematics",
+      topics: [
+        {
+          id: "1",
+          name: "Algebra",
+          numberOfPeriods: 6,
+          competencies: ["Solve equations", "Factorise", "Plot graphs"],
+        },
+      ],
+    });
+    const all = scheme.rows.map((r) => r.learningOutcomes).join(" ").toLowerCase();
+    // At least one quantitative outcome appears across the topic.
+    expect(/calculat|solve|measure|formula|plot|graph|figure/.test(all)).toBe(true);
+  });
+
+  it("avoids calculation verbs for descriptive subjects like History", () => {
+    const scheme = buildLocalScheme({
+      ...baseForm,
+      subject: "History & Political Education",
+      topics: [
+        {
+          id: "1",
+          name: "The Scramble for Africa",
+          numberOfPeriods: 6,
+          competencies: ["Explain causes", "Analyse effects", "Interpret sources"],
+        },
+      ],
+    });
+    const calcVerb = /calculat|derive|compute|solve|plot|measure numerically|formula/i;
+    // No descriptive-subject outcome should demand a calculation/formula.
+    expect(scheme.rows.every((r) => !calcVerb.test(r.learningOutcomes))).toBe(true);
+    // But it should still read as rich, thinking-based teaching language.
+    const all = scheme.rows.map((r) => r.learningOutcomes).join(" ").toLowerCase();
+    expect(/describe|explain|interpret|narrate|analyse|compare|debate|define|demonstrate/.test(all)).toBe(
+      true
+    );
+  });
 });

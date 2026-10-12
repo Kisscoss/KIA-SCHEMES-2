@@ -1,27 +1,70 @@
 import { type GeneratedScheme, type SchemeFormData, type SchemeRow } from "@/types/scheme";
 
-const METHODOLOGIES = [
-  "DRLA, Group Discussions",
-  "Target Questioning, Think-Pair-Share",
-  "Modeling, Problem Solving",
-  "Demonstration, Practical Work",
-  "Group Discussions, Problem Solving",
-  "Think-Pair-Share, Demonstration",
-  "Problem Solving, Practical Work",
-  "Modeling, Group Discussions",
-  "DRLA, Practical Work",
-  "Target Questioning, Problem Solving",
+/** Subjects where numeric calculation / problem-solving is a natural part of
+ *  lessons. Everything else is treated as descriptive (humanities, languages,
+ *  arts and the descriptive sciences), where calculation verbs would be wrong. */
+const QUANTITATIVE_KEYWORDS = [
+  "mathemat",
+  "physic",
+  "chemic",
+  "econom",
+  "comput",
+  "account",
+  "agricultur",
+  "entrepren",
 ];
 
-const RESOURCE_SETS = [
-  "Chalkboard, charts, textbooks",
-  "Models, charts, work cards",
-  "Calculators, rulers, graph books",
-  "Textbooks, wall charts, past papers",
+export function isQuantitativeSubject(subject: string): boolean {
+  const s = (subject || "").toLowerCase();
+  return QUANTITATIVE_KEYWORDS.some((k) => s.includes(k));
+}
+
+const METHODOLOGIES_QUANT = [
+  "DRLA, Group Discussions, Problem Solving",
+  "Target Questioning, Think-Pair-Share, Worked Examples",
+  "Modeling, Guided Practice, Problem Solving",
+  "Demonstration, Practical Work, Problem Solving",
+  "Group Discussions, Problem Solving, Peer Marking",
+  "Think-Pair-Share, Demonstration, Worked Examples",
+  "Problem Solving, Practical Work, Group Work",
+  "Modeling, Group Discussions, Guided Practice",
+  "DRLA, Practical Work, Peer Marking",
+  "Target Questioning, Problem Solving, Demonstration",
+];
+
+const METHODOLOGIES_DESCRIPTIVE = [
+  "DRLA, Group Discussions, Role Play",
+  "Target Questioning, Think-Pair-Share, Storytelling",
+  "Discussion, Debate, Guided Reading",
+  "Demonstration, Practical Work, Field Observation",
+  "Group Discussions, Role Play, Peer Feedback",
+  "Think-Pair-Share, Demonstration, Storytelling",
+  "Debate, Group Discussions, Case Studies",
+  "Discussion, Guided Reading, Role Play",
+  "DRLA, Field Observation, Peer Feedback",
+  "Target Questioning, Debate, Case Studies",
+];
+
+const RESOURCE_SETS_QUANT = [
+  "Chalkboard, charts, textbooks, worked examples",
+  "Calculators, rulers, graph books, past papers",
+  "Geometrical instruments, graph papers, textbooks",
   "ICT projector, laptops, textbooks",
   "Manipulatives, work cards, real objects",
   "Reference books, charts, calculators",
-  "Audio-visual aids, textbooks, charts",
+  "Microscope, specimens, charts, textbooks",
+  "Audio-visual aids, textbooks, worked examples",
+];
+
+const RESOURCE_SETS_DESCRIPTIVE = [
+  "Textbooks, wall charts, story books",
+  "Maps, atlases, photographs, charts",
+  "Newspapers, reference books, timelines",
+  "ICT projector, laptops, textbooks",
+  "Manipulatives, work cards, real objects",
+  "Chalkboard, charts, story books",
+  "Audio-visual aids, textbooks, primary sources",
+  "Reference books, charts, discussion cards",
 ];
 
 const REFERENCE_SETS = [
@@ -36,33 +79,66 @@ const REFERENCE_SETS = [
 ];
 
 // Human-like outcome phrasings that rotate so no two consecutive periods read
-// the same. Each entry is a (competency, topic) => sentence template.
-const OUTCOME_TEMPLATES: Array<(competency: string, topic: string) => string> = [
+// the same. Two banks are kept: one for quantitative subjects (calculation /
+// problem-solving is natural) and one for descriptive subjects (humanities,
+// languages, arts) where numeric verbs would be inappropriate.
+const OUTCOME_TEMPLATES_QUANT: Array<(competency: string, topic: string) => string> = [
   (c, t) =>
     `Define the key terms related to ${c}; give local examples from ${t}; and answer two oral questions correctly.`,
   (c, t) =>
-    `Describe ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
-  (c, t) =>
-    `Explain the meaning of ${c}; illustrate ${t} using a labelled diagram; and work through one guided example as a class.`,
+    `Explain ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
   (c, t) =>
     `Apply ${c} to solve two given problems on ${t}; check their answers with a partner; and correct any mistakes made.`,
   (c, t) =>
     `Calculate and record results involving ${c}; interpret what the results show about ${t}; and present findings to the group.`,
   (c, t) =>
+    `Use the formula for ${c} to work through a step-by-step example; show each stage of ${t}; and verify the answer with a neighbour.`,
+  (c, t) =>
     `Classify given items according to ${c}; justify their groupings using ideas from ${t}; and compare answers with another learner.`,
   (c, t) =>
+    `Construct a labelled diagram of ${t}; explain how it shows ${c}; and note two things they found challenging.`,
+  (c, t) =>
+    `Demonstrate ${c} using the materials provided; describe each stage of ${t}; and record the results in a table.`,
+  (c, t) =>
+    `Measure and record data about ${t}; use ${c} to analyse the figures; and write a two-sentence summary of what the data shows.`,
+  (c, t) =>
+    `Compare two methods for ${c} across different ${t} cases; record which works best and why; and discuss their findings with the class.`,
+];
+
+const OUTCOME_TEMPLATES_DESCRIPTIVE: Array<(competency: string, topic: string) => string> = [
+  (c, t) =>
+    `Define the key terms related to ${c}; give local examples from ${t}; and use each term in a sentence of their own.`,
+  (c, t) =>
+    `Describe ${c} in their own words; identify real-life situations involving ${t}; and complete a short matching exercise.`,
+  (c, t) =>
+    `Explain the meaning of ${c}; illustrate ${t} using a labelled diagram or poster; and present their ideas to a partner.`,
+  (c, t) =>
+    `Narrate a real-life story that shows ${c} in action; connect it to ${t}; and share the lesson they learn from it.`,
+  (c, t) =>
+    `Interpret a given passage, map or image about ${t}; explain how it relates to ${c}; and answer two comprehension questions.`,
+  (c, t) =>
+    `Classify given examples according to ${c}; justify their groupings using ideas from ${t}; and compare answers with another learner.`,
+  (c, t) =>
+    `Debate a statement about ${t} with a partner; support their view using ${c}; and summarise both sides of the argument.`,
+  (c, t) =>
+    `Demonstrate ${c} through a short role play about ${t}; describe each stage; and note two things they found challenging.`,
+  (c, t) =>
     `Analyse ${c} step by step; draw conclusions about ${t}; and write a two-sentence summary of what they discovered.`,
-  (c, t) =>
-    `Demonstrate ${c} using the materials provided; describe each stage of ${t}; and note two things they found challenging.`,
-  (c, t) =>
-    `Construct a simple model of ${t}; relate it to ${c}; and evaluate how well their model works.`,
   (c, t) =>
     `Compare and contrast ${c} across different ${t} cases; record similarities and differences in a table; and discuss their findings.`,
 ];
 
+function outcomeTemplatesFor(subject: string) {
+  return isQuantitativeSubject(subject)
+    ? OUTCOME_TEMPLATES_QUANT
+    : OUTCOME_TEMPLATES_DESCRIPTIVE;
+}
 
-const AOI_TEMPLATE = (competency: string, topic: string) =>
-  `Learners integrate their understanding of ${topic} by completing an Activity of Integration (AoI): they apply ${competency} to a real-life task, present their solution, and self-assess against the success criteria for the topic.`;
+const AOI_TEMPLATE_QUANT = (competency: string, topic: string) =>
+  `Learners integrate their understanding of ${topic} by completing an Activity of Integration (AoI): they apply ${competency} to solve a real-life problem step by step, present their solution, and self-assess against the success criteria for the topic.`;
+
+const AOI_TEMPLATE_DESCRIPTIVE = (competency: string, topic: string) =>
+  `Learners integrate their understanding of ${topic} by completing an Activity of Integration (AoI): they apply ${competency} to a real-life task, present their ideas, and self-assess against the success criteria for the topic.`;
 
 
 export function isValidScheme(value: unknown): value is GeneratedScheme {
@@ -137,6 +213,15 @@ export function buildLocalScheme(formData: SchemeFormData): GeneratedScheme {
       ? topics
       : [{ name: "General", numberOfPeriods: slots.length, competencies: ["General competency"] }];
 
+  // Choose subject-appropriate outcome / methodology / resource banks so, for
+  // example, a History lesson never gets "calculate the area" or a Maths lesson
+  // never loses its problem-solving verbs.
+  const quantitative = isQuantitativeSubject(formData.subject);
+  const outcomeTemplates = outcomeTemplatesFor(formData.subject);
+  const methodologies = quantitative ? METHODOLOGIES_QUANT : METHODOLOGIES_DESCRIPTIVE;
+  const resourceSets = quantitative ? RESOURCE_SETS_QUANT : RESOURCE_SETS_DESCRIPTIVE;
+  const aoiTemplate = quantitative ? AOI_TEMPLATE_QUANT : AOI_TEMPLATE_DESCRIPTIVE;
+
   const rows: SchemeRow[] = [];
   let week = 1;
   let slotIdx = 0;
@@ -169,18 +254,18 @@ export function buildLocalScheme(formData: SchemeFormData): GeneratedScheme {
       const competency = list[lessonInTopic % list.length];
       const topicLabel = isLast ? `${topic.name} - Activity of Integration (AoI)` : topic.name;
       // Rotate through varied, human-like templates so each period is unique.
-      const tplIdx = (topicIdx * 3 + lessonInTopic * 2) % OUTCOME_TEMPLATES.length;
+      const tplIdx = (topicIdx * 3 + lessonInTopic * 2) % outcomeTemplates.length;
       const outcomes = isLast
-        ? AOI_TEMPLATE(competency, topic.name)
-        : OUTCOME_TEMPLATES[tplIdx](competency, topic.name);
+        ? aoiTemplate(competency, topic.name)
+        : outcomeTemplates[tplIdx](competency, topic.name);
       rows.push({
         week: Math.min(week, totalWeeks),
         period,
         topic: topicLabel,
         competency,
         learningOutcomes: outcomes,
-        resources: RESOURCE_SETS[(topicIdx + lessonInTopic) % RESOURCE_SETS.length],
-        methodology: METHODOLOGIES[(topicIdx + lessonInTopic) % METHODOLOGIES.length],
+        resources: resourceSets[(topicIdx + lessonInTopic) % resourceSets.length],
+        methodology: methodologies[(topicIdx + lessonInTopic) % methodologies.length],
         references: REFERENCE_SETS[(topicIdx + lessonInTopic + 1) % REFERENCE_SETS.length],
         remarks: "",
       });
