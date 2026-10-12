@@ -36,24 +36,6 @@ export function createApp(): Express {
   );
   app.use(express.json({ limit: "1mb" }));
 
-  // Basic global rate limit: 120 requests / minute / IP (in-memory; fine for a
-  // single instance — on serverless this is best-effort per warm instance).
-  const hits = new Map<string, { count: number; resetAt: number }>();
-  app.use((req, res, next) => {
-    const now = Date.now();
-    const key = req.ip ?? "unknown";
-    const bucket = hits.get(key);
-    if (!bucket || bucket.resetAt < now) {
-      hits.set(key, { count: 1, resetAt: now + 60_000 });
-      return next();
-    }
-    bucket.count += 1;
-    if (bucket.count > 120) {
-      return res.status(429).json({ error: "Too many requests. Slow down." });
-    }
-    next();
-  });
-
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, service: "kia-schemes-api" });
   });
