@@ -1,8 +1,13 @@
 import { config } from "./config.js";
 
-// Max time to wait for a single AI response (headers + body). Free-tier models
-// can stall on the body stream, so we fail fast rather than hanging the request.
-const AI_TIMEOUT_MS = 45_000;
+// Max time to wait for a single AI response (headers + body). Configurable via
+// AI_TIMEOUT_MS so you can raise it on slow/unstable networks.
+const AI_TIMEOUT_MS = config.aiTimeoutMs;
+
+// How many times to retry a single AI call when it stalls (AbortError/timeout)
+// or the connection fails transiently. Model stalls are usually momentary, so a
+// fresh attempt typically succeeds well within the timeout.
+const AI_MAX_ATTEMPTS = 3;
 
 export interface TopicInput {
   name?: string;
@@ -139,7 +144,7 @@ function extractJsonArray(content: string): unknown {
   return null;
 }
 
-async function callOpenRouter(
+async function callOpenRouterOnce(
   messages: Array<{ role: "system" | "user"; content: string }>
 ): Promise<string> {
   // Guard against a stalled response (some free models hang on the body).
@@ -198,6 +203,44 @@ async function callOpenRouter(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Whether an error is a transient stall/connection failure worth retrying. */
+function isRetryableAiError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  if (e.name === "AbortError") return true;
+  const msg = e.message.toLowerCase();
+  if (msg.includes("taking too long")) return true;
+  // Network-level failures (DNS, socket reset, fetch failed) are transient.
+  if (msg.includes("fetch failed") || msg.includes("network")) return true;
+  return false;
+}
+
+/** Call OpenRouter, retrying transient stalls/timeouts up to AI_MAX_ATTEMPTS.
+ *  Non-retryable errors (rate limit, credits, gateway) throw immediately. */
+async function callOpenRouter(
+  messages: Array<{ role: "system" | "user"; content: string }>
+): Promise<string> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= AI_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await callOpenRouterOnce(messages);
+    } catch (e) {
+      lastError = e;
+      const status = (e as { status?: number }).status;
+      // Don't retry deterministic failures (401/402/429/4xx) — retrying won't help.
+      if (typeof status === "number" && status >= 400 && status < 500) throw e;
+      if (!isRetryableAiError(e)) throw e;
+      if (attempt < AI_MAX_ATTEMPTS) {
+        // Small backoff before the next attempt.
+        await new Promise((r) => setTimeout(r, attempt * 1000));
+        console.warn(
+          `AI attempt ${attempt} stalled (${(e as Error).message}); retrying...`
+        );
+      }
+    }
+  }
+  throw lastError;
 }
 
 export async function generateRows(formData: SchemeFormInput): Promise<GeneratedRow[]> {
