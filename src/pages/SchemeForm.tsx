@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { generateScheme, saveScheme } from "@/lib/api";
+import { generateScheme, saveScheme, NetworkError } from "@/lib/api";
 import { buildLocalScheme, isValidScheme, normalizeScheme } from "@/lib/localScheme";
 import {
   type SchemeFormData,
@@ -136,10 +136,16 @@ const SchemeForm = () => {
       }
       if (notice) toast.message(notice);
       navigate("/preview", { state: { scheme: normalized } });
-      // Save to Neon in the background (preview works even if this fails).
-      saveScheme(normalized).catch((saveError) => {
-        console.warn("Could not save scheme to Neon", saveError);
-      });
+      // Save to Neon in the background (preview works even if this fails), but
+      // surface the outcome so the user knows it reached their history.
+      saveScheme(normalized)
+        .then(() => toast.success("Scheme saved to your history."))
+        .catch((saveError) => {
+          console.warn("Could not save scheme to Neon", saveError);
+          toast.error(
+            "Generated successfully, but it could not be saved to your history."
+          );
+        });
     };
 
     try {
@@ -147,15 +153,15 @@ const SchemeForm = () => {
       persistAndGo(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to generate scheme.";
-      if (message.includes("Rate limit") || message.includes("Rate limited")) {
-        toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
-      } else if (message.includes("credits")) {
-        toast.error("AI credits exhausted. Please add credits in server settings.");
-      } else if (message.includes("Failed to fetch") || message.includes("fetch")) {
+      if (err instanceof NetworkError) {
         persistAndGo(
           buildLocalScheme(formData),
           "AI service unreachable — generated an offline preview."
         );
+      } else if (message.includes("Rate limit") || message.includes("Rate limited")) {
+        toast.error("AI is temporarily busy. Please wait 30 seconds and try again.");
+      } else if (message.includes("credits")) {
+        toast.error("AI credits exhausted. Please add credits in server settings.");
       } else {
         toast.error(message);
       }

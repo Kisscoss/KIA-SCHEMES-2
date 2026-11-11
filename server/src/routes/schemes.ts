@@ -2,9 +2,21 @@ import { Router } from "express";
 import { getSql } from "../db.js";
 import { generateRows, type SchemeFormInput } from "../ai.js";
 import { requireAuth, type AuthedRequest } from "../authMiddleware.js";
+import { rateLimit } from "../rateLimit.js";
 
 const router = Router();
 router.use(requireAuth);
+
+// Protect the OpenRouter quota: at most 10 AI generations per hour per user.
+// Runs after requireAuth so req.auth.userId is available; falls back to IP.
+const aiGenerateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) =>
+    (req as AuthedRequest).auth?.userId || req.ip || "anonymous",
+  message:
+    "Rate limited. AI generation quota reached — please try again later.",
+});
 
 function isValidFormData(fd: unknown): fd is SchemeFormInput {
   if (!fd || typeof fd !== "object") return false;
@@ -13,7 +25,7 @@ function isValidFormData(fd: unknown): fd is SchemeFormInput {
 }
 
 /** POST /api/schemes/generate — AI-generate rows (not yet saved). */
-router.post("/generate", async (req, res) => {
+router.post("/generate", aiGenerateLimiter, async (req, res) => {
   try {
     const { formData } = req.body as { formData: SchemeFormInput };
     if (!isValidFormData(formData)) {

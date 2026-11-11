@@ -20,6 +20,8 @@ interface JwtPayload {
 
 let cachedKeys: { fetchedAt: number; keys: Map<string, KeyObject> } | null = null;
 const JWKS_TTL_MS = 10 * 60 * 1000;
+// Cap the JWKS fetch so a hung auth endpoint can't hang every API request.
+const JWKS_TIMEOUT_MS = 5000;
 
 async function loadJwks(): Promise<Map<string, KeyObject>> {
   if (cachedKeys && Date.now() - cachedKeys.fetchedAt < JWKS_TTL_MS) {
@@ -27,7 +29,15 @@ async function loadJwks(): Promise<Map<string, KeyObject>> {
   }
   const url = process.env.AUTH_JWKS_URL ?? "";
   if (!url) throw new Error("AUTH_JWKS_URL is not configured");
-  const res = await fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), JWKS_TIMEOUT_MS);
+  // NB: annotate with the fetch return type — `Response` here is Express's type.
+  let res: Awaited<ReturnType<typeof fetch>>;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!res.ok) throw new Error(`Failed to fetch JWKS (${res.status})`);
   const jwks = (await res.json()) as {
     keys?: Array<Record<string, unknown> & { kid?: string }>;

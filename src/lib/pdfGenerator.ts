@@ -20,15 +20,9 @@ export const generatePDF = (scheme: GeneratedScheme) => {
     if (base) lastIndexByTopic.set(base, i);
   });
 
-  const aoiRowIndices = new Set<number>();
-  lastIndexByTopic.forEach((idx, base) => {
-    const row = rows[idx];
-    const already = /Activity of Integration \(AoI\)/i.test(row.topic);
-    if (!already) {
-      row.topic = `${base} - Activity of Integration (AoI)`;
-    }
-    aoiRowIndices.add(idx);
-  });
+  // Indices of the last period of each topic — these render as the AoI row.
+  // Computed without mutating the scheme rows.
+  const aoiRowIndices = new Set<number>(lastIndexByTopic.values());
 
   // Title
   doc.setFontSize(14);

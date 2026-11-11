@@ -12,8 +12,9 @@ import { createApp } from "../server/dist/app.js";
 const app = createApp();
 
 // Cap the function's wall-clock so it fails fast with our own 500 handler rather
-// than being hard-killed by the platform. Vercel Hobby/Pro allow up to 60s here;
-// individual AI calls are additionally bounded by AI_TIMEOUT_MS.
+// than being hard-killed by the platform. Vercel Hobby/Pro allow up to 60s here.
+// AI generation is bounded by AI_TOTAL_BUDGET_MS (default 50s) — kept under this
+// limit so a slow model yields our error, not a platform 504.
 export const config = { maxDuration: 60 };
 
 export default app;

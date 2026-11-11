@@ -3,6 +3,15 @@ import { getAuthToken } from "@/lib/auth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined ?? "").replace(/\/$/, "");
 
+/** Thrown when the request never reached the server (offline, DNS, CORS, …) so
+ *  callers can distinguish a real API error from an unreachable service. */
+export class NetworkError extends Error {
+  constructor(message = "Could not reach the server. Check your connection and try again.") {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   try {
     const token = await getAuthToken();
@@ -13,14 +22,20 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(await authHeaders()),
-      ...(init?.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(await authHeaders()),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch {
+    // fetch() only rejects on network-level failures — surface as NetworkError.
+    throw new NetworkError();
+  }
   const data = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
   if (!res.ok) {
     if (res.status === 401) {

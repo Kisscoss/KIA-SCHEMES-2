@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import schemesRouter from "./routes/schemes.js";
+import { rateLimit } from "./rateLimit.js";
 
 /**
  * Builds the KIA Schemes API as an Express app WITHOUT starting a listener or
@@ -39,6 +40,11 @@ export function createApp(): Express {
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, service: "kia-schemes-api" });
   });
+
+  // Global limiter: 120 requests/min per client IP across all API routes.
+  // Applied under /api so static asset requests are not counted. See
+  // rateLimit.ts for the serverless best-effort caveat.
+  app.use("/api", rateLimit({ windowMs: 60_000, max: 120 }));
 
   app.use("/api/schemes", schemesRouter);
 

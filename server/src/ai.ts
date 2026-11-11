@@ -1,13 +1,7 @@
 import { config } from "./config.js";
 
-// Max time to wait for a single AI response (headers + body). Configurable via
-// AI_TIMEOUT_MS so you can raise it on slow/unstable networks.
-const AI_TIMEOUT_MS = config.aiTimeoutMs;
-
-// How many times to retry a single AI call when it stalls (AbortError/timeout)
-// or the connection fails transiently. Model stalls are usually momentary, so a
-// fresh attempt typically succeeds well within the timeout.
-const AI_MAX_ATTEMPTS = 3;
+// Per-attempt timeout and attempt count come from config so the whole generate
+// request stays inside AI_TOTAL_BUDGET_MS (and thus the 60s serverless cap).
 
 export interface TopicInput {
   name?: string;
@@ -179,11 +173,12 @@ function extractJsonArray(content: string): unknown {
 }
 
 async function callOpenRouterOnce(
-  messages: Array<{ role: "system" | "user"; content: string }>
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  timeoutMs: number
 ): Promise<string> {
   // Guard against a stalled response (some free models hang on the body).
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
     response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -250,22 +245,31 @@ function isRetryableAiError(e: unknown): boolean {
   return false;
 }
 
-/** Call OpenRouter, retrying transient stalls/timeouts up to AI_MAX_ATTEMPTS.
- *  Non-retryable errors (rate limit, credits, gateway) throw immediately. */
+/** Call OpenRouter, retrying transient stalls/timeouts. Retries stop as soon as
+ *  the shared `deadline` is reached so the whole request cannot exceed the
+ *  overall budget. Non-retryable errors (rate limit, credits, gateway) throw
+ *  immediately. */
 async function callOpenRouter(
-  messages: Array<{ role: "system" | "user"; content: string }>
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  deadline: number
 ): Promise<string> {
   let lastError: unknown;
-  for (let attempt = 1; attempt <= AI_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= config.aiMaxAttempts; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 1000) {
+      // Out of time: don't start another attempt we cannot finish.
+      throw lastError ?? new Error("AI is taking too long. Please try again.");
+    }
+    const timeoutMs = Math.min(config.aiTimeoutMs, remaining);
     try {
-      return await callOpenRouterOnce(messages);
+      return await callOpenRouterOnce(messages, timeoutMs);
     } catch (e) {
       lastError = e;
       const status = (e as { status?: number }).status;
       // Don't retry deterministic failures (401/402/429/4xx) — retrying won't help.
       if (typeof status === "number" && status >= 400 && status < 500) throw e;
       if (!isRetryableAiError(e)) throw e;
-      if (attempt < AI_MAX_ATTEMPTS) {
+      if (attempt < config.aiMaxAttempts && deadline - Date.now() > 1000) {
         // Small backoff before the next attempt.
         await new Promise((r) => setTimeout(r, attempt * 1000));
         console.warn(
@@ -274,11 +278,63 @@ async function callOpenRouter(
       }
     }
   }
-  throw lastError;
+  throw lastError ?? new Error("AI is taking too long. Please try again.");
+}
+
+function asString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+/** Validate & normalise the AI's parsed output into safe rows. Returns null when
+ *  the payload is unusable (not an array, or a row is missing its topic /
+ *  learning outcome) so the caller can retry with a stricter prompt instead of
+ *  rendering blank cells. */
+export function sanitizeRows(parsed: unknown): GeneratedRow[] | null {
+  if (!Array.isArray(parsed)) return null;
+  const rows: GeneratedRow[] = [];
+  for (const raw of parsed) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const topic = asString(r.topic).trim();
+    const learningOutcomes = stripOutcomeLeadIn(r.learningOutcomes);
+    // A row without a topic or learning outcome is unusable — reject the whole
+    // response so we can retry rather than render blank cells.
+    if (!topic || !learningOutcomes) return null;
+    const weekNum = Number(r.week);
+    rows.push({
+      week: Number.isFinite(weekNum) && weekNum >= 1 ? Math.floor(weekNum) : 1,
+      period: normalizePeriod(r.period),
+      topic,
+      competency: asString(r.competency).trim(),
+      learningOutcomes,
+      resources: asString(r.resources).trim(),
+      methodology: asString(r.methodology).trim(),
+      references: asString(r.references).trim(),
+      remarks: asString(r.remarks),
+    });
+  }
+  return rows.length > 0 ? rows : null;
+}
+
+/** How many lesson rows a correct scheme should contain for this request. */
+function expectedLessonCount(formData: SchemeFormInput): number {
+  const weeks = Math.max(0, Math.floor(formData.numberOfWeeks ?? 0));
+  const lessonsPerWeek = Math.max(
+    0,
+    Math.floor(formData.singlePeriodsPerWeek ?? 0) +
+      Math.floor(formData.doublePeriodsPerWeek ?? 0)
+  );
+  return weeks * lessonsPerWeek;
 }
 
 export async function generateRows(formData: SchemeFormInput): Promise<GeneratedRow[]> {
   if (!config.openrouterApiKey) throw new Error("OPENROUTER_API_KEY not configured");
+
+  // Single wall-clock budget shared by every attempt below, so the request
+  // cannot exceed AI_TOTAL_BUDGET_MS (and the 60s serverless cap).
+  const deadline = Date.now() + config.aiTotalBudgetMs;
 
   const messages: Array<{ role: "system" | "user"; content: string }> = [
     {
@@ -289,31 +345,40 @@ export async function generateRows(formData: SchemeFormInput): Promise<Generated
     { role: "user", content: buildPrompt(formData) },
   ];
 
-  // Free-tier models occasionally return prose/moderation instead of JSON, so
-  // retry once with a stricter reminder before giving up.
-  let content = await callOpenRouter(messages);
-  let parsed = extractJsonArray(content);
+  let content = await callOpenRouter(messages, deadline);
+  let rows = sanitizeRows(extractJsonArray(content));
 
-  if (!Array.isArray(parsed)) {
-    content = await callOpenRouter([
-      ...messages,
-      {
-        role: "user",
-        content:
-          "Your previous reply was not a valid JSON array. Respond now with ONLY the JSON array of scheme rows — no text before or after.",
-      },
-    ]);
-    parsed = extractJsonArray(content);
+  // Free-tier models occasionally return prose/moderation/incomplete JSON, so
+  // retry once with a stricter reminder — but only if budget remains.
+  if (!rows && deadline - Date.now() > 1000) {
+    content = await callOpenRouter(
+      [
+        ...messages,
+        {
+          role: "user",
+          content:
+            "Your previous reply was not a valid JSON array of scheme rows, or rows were missing required fields. Respond now with ONLY the JSON array — no text before or after — and include topic and learningOutcomes for every row.",
+        },
+      ],
+      deadline
+    );
+    rows = sanitizeRows(extractJsonArray(content));
   }
 
-  if (!Array.isArray(parsed)) {
+  if (!rows) {
     console.error("Failed to parse AI response:", content);
     throw new Error("AI returned invalid data. Please try again.");
   }
 
-  return (parsed as GeneratedRow[]).map((r) => ({
-    ...r,
-    period: normalizePeriod(r.period),
-    learningOutcomes: stripOutcomeLeadIn(r.learningOutcomes),
-  }));
+  const expected = expectedLessonCount(formData);
+  if (expected > 0 && rows.length !== expected) {
+    // Non-fatal: the model's distribution may legitimately differ. Log so the
+    // mismatch is visible without failing the request.
+    console.warn(
+      `AI returned ${rows.length} rows but ${expected} lessons were expected ` +
+        `(${formData.numberOfWeeks} weeks × ${formData.singlePeriodsPerWeek} single + ${formData.doublePeriodsPerWeek} double).`
+    );
+  }
+
+  return rows;
 }

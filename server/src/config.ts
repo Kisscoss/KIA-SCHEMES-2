@@ -9,10 +9,23 @@ export const config = {
     return process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini";
   },
   get aiTimeoutMs(): number {
-    // Max time to wait for a single OpenRouter response. Overridable so you can
-    // raise it on slow/unstable networks. Default 90s.
+    // Max time to wait for a SINGLE OpenRouter attempt. Overridable so you can
+    // raise it on slow/unstable networks. Default 25s — small enough that a
+    // couple of attempts plus backoff stay inside the 60s serverless cap.
     const n = Number(process.env.AI_TIMEOUT_MS);
-    return Number.isFinite(n) && n >= 5000 ? n : 90_000;
+    return Number.isFinite(n) && n >= 5000 ? n : 25_000;
+  },
+  get aiMaxAttempts(): number {
+    // Attempts per logical AI call. Default 2.
+    const n = Math.floor(Number(process.env.AI_MAX_ATTEMPTS));
+    return Number.isFinite(n) && n >= 1 ? n : 2;
+  },
+  get aiTotalBudgetMs(): number {
+    // Overall wall-clock budget for a single generate request, spanning ALL
+    // attempts and the stricter-JSON retry. Kept under the 60s serverless
+    // function limit so we fail with our own error instead of a platform 504.
+    const n = Number(process.env.AI_TOTAL_BUDGET_MS);
+    return Number.isFinite(n) && n >= 10_000 ? n : 50_000;
   },
   get port(): number {
     return Number(process.env.PORT || 4000);

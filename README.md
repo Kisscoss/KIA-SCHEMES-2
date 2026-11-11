@@ -134,7 +134,14 @@ Deploy steps:
 
    **Do not set `VITE_API_URL`** — the frontend calls same-origin `/api/...`, which
    Vercel routes to the function. Leave `CORS_ORIGIN` empty (same-origin).
-3. **Deploy.** The API is available at `https://<project>.vercel.app/api/health`.
+3. **Allow your domain in Neon Auth.** Sign-in from the live site fails with
+   `INVALID_ORIGIN` ("Invalid origin") unless the deployed origin is trusted.
+   This is configured in **Neon Console → KIA-SCHEME-GENIE → Auth →
+   Configuration → Domains** (not in Vercel): add `https://<project>.vercel.app`
+   exactly — with `https://`, no trailing slash. `localhost` is pre-approved, so
+   dev works without it. Wildcards such as `https://*.vercel.app` cover preview
+   deployments.
+4. **Deploy.** The API is available at `https://<project>.vercel.app/api/health`.
 
 Caveats vs. a single server: serverless is stateless, so the in-memory rate-limit
 buckets reset on cold starts (best-effort), and generation is capped by Vercel's
